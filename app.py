@@ -265,7 +265,8 @@ def ai_move():
         all_moves = []
         if show_thinking:
             all_moves = ai_player.get_all_evaluated_moves(game)
-            all_moves = [move.to_dict() for move in all_moves[:50]]  # Limit to top 50
+            # Limit to top 1000 for performance while showing comprehensive evaluation
+            all_moves = [move.to_dict() for move in all_moves[:1000]]
         
         return jsonify({
             'success': True,

@@ -5,6 +5,7 @@ Main game state class that manages the entire Blokus game.
 
 from typing import List, Dict, Optional, Tuple
 from enum import Enum
+import random
 from board import Board, PlayerColor
 from player import Player
 from pieces import Piece, PieceType
@@ -78,10 +79,20 @@ class GameState:
         self.turn_number = 0
         self.move_history = []
     
-    def start_game(self):
-        """Start the game"""
+    def start_game(self, randomize_start: bool = True):
+        """
+        Start the game
+        
+        Args:
+            randomize_start: If True, randomize the starting player
+        """
         if self.phase != GamePhase.NOT_STARTED:
             raise RuntimeError("Game has already started")
+        
+        # Randomize starting player if requested
+        if randomize_start:
+            self.current_player_index = random.randint(0, len(self.players) - 1)
+        
         self.phase = GamePhase.IN_PROGRESS
         self.turn_number = 1
     

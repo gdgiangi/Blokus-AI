@@ -37,7 +37,7 @@ const elements = {
     finalRankings: null,
     aiControlsContainer: null,
     aiThinkingPanel: null,
-    aiThinkingList: null
+    aiDecisionLog: null
 };
 
 // Initialize on page load
@@ -66,7 +66,7 @@ function initializeElements() {
     elements.finalRankings = document.getElementById('final-rankings');
     elements.aiControlsContainer = document.getElementById('ai-controls');
     elements.aiThinkingPanel = document.getElementById('ai-thinking-panel');
-    elements.aiThinkingList = document.getElementById('ai-thinking-list');
+    elements.aiDecisionLog = document.getElementById('ai-decision-log');
 }
 
 function attachEventListeners() {
@@ -730,20 +730,38 @@ async function performAIMove() {
 
 async function showAIThinking(allMoves, bestMove) {
     return new Promise((resolve) => {
-        // Show AI thinking panel
-        if (elements.aiThinkingPanel) {
-            elements.aiThinkingPanel.style.display = 'block';
-        }
-
-        if (!elements.aiThinkingList) {
+        if (!elements.aiDecisionLog) {
             resolve();
             return;
         }
 
-        elements.aiThinkingList.innerHTML = '';
+        // Group moves by piece type to show variety
+        const movesByPiece = {};
+        allMoves.forEach(move => {
+            if (!movesByPiece[move.piece_type]) {
+                movesByPiece[move.piece_type] = [];
+            }
+            movesByPiece[move.piece_type].push(move);
+        });
 
-        // Display top moves being considered
-        const topMoves = allMoves.slice(0, 10);
+        const piecesConsidered = Object.keys(movesByPiece).length;
+
+        // Add temporary status message at top (will be removed)
+        const tempStatus = document.createElement('div');
+        tempStatus.className = 'ai-temp-status';
+        tempStatus.innerHTML = `🤔 Considering ${piecesConsidered} different pieces... (${allMoves.length} positions)`;
+        elements.aiDecisionLog.insertBefore(tempStatus, elements.aiDecisionLog.firstChild);
+
+        // Visualize different pieces on the board (sample a few to show variety)
+        const sampleMoves = [];
+        Object.values(movesByPiece).forEach(moves => {
+            if (moves.length > 0) {
+                sampleMoves.push(moves[0]); // Take best move for each piece
+            }
+        });
+
+        // Limit to top 15 pieces to visualize
+        const movesToShow = sampleMoves.slice(0, 15);
         let currentIndex = 0;
 
         // Clear any existing interval
@@ -751,49 +769,87 @@ async function showAIThinking(allMoves, bestMove) {
             clearInterval(aiThinkingInterval);
         }
 
-        // Animate through the moves
+        // Animate through different pieces on the board
         aiThinkingInterval = setInterval(() => {
-            if (currentIndex < topMoves.length) {
-                const move = topMoves[currentIndex];
-                const isBest = move.piece_type === bestMove.piece_type &&
-                    move.row === bestMove.row &&
-                    move.col === bestMove.col;
-
-                // Add move to list
-                const moveItem = document.createElement('div');
-                moveItem.className = 'ai-move-item' + (isBest ? ' best-move' : '');
-
-                const breakdown = Object.entries(move.heuristic_breakdown)
-                    .map(([name, value]) => `${name}: ${value.toFixed(2)}`)
-                    .join(', ');
-
-                moveItem.innerHTML = `
-                    <div class="ai-move-header">
-                        <span class="ai-move-piece">${move.piece_type}</span>
-                        <span class="ai-move-position">(${move.row}, ${move.col})</span>
-                        <span class="ai-move-score">${move.score.toFixed(2)}</span>
-                    </div>
-                    <div class="ai-move-breakdown">${breakdown}</div>
-                `;
-
-                elements.aiThinkingList.appendChild(moveItem);
-
-                // Visualize move on board
+            if (currentIndex < movesToShow.length) {
+                const move = movesToShow[currentIndex];
                 visualizeAIMove(move);
-
                 currentIndex++;
             } else {
                 clearInterval(aiThinkingInterval);
                 aiThinkingInterval = null;
 
-                // Highlight best move
-                setTimeout(() => {
-                    visualizeAIMove(bestMove, true);
-                    setTimeout(resolve, 1000);
-                }, 500);
+                // Remove temporary status
+                tempStatus.remove();
+
+                // Add decision to persistent log
+                const currentColor = gameState.current_player;
+                addAIDecisionToLog(bestMove, allMoves.length, currentColor);
+
+                // Highlight best move on board
+                visualizeAIMove(bestMove, true);
+                setTimeout(resolve, 800);
             }
-        }, 200);  // Show each move for 200ms
+        }, 100);  // Fast visualization (100ms per piece)
     });
+}
+
+function addAIDecisionToLog(bestMove, totalMoves, playerColor) {
+    if (!elements.aiDecisionLog) return;
+
+    // Find the top 3 heuristics that influenced this decision
+    const heuristics = Object.entries(bestMove.heuristic_breakdown || {});
+    const topReasons = heuristics
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3);
+
+    // Human-readable heuristic names
+    const heuristicNames = {
+        'piece_size': 'larger piece',
+        'new_paths': 'opens up new placement options',
+        'blocked_opponents': 'blocks opponent moves',
+        'corner_control': 'controls key corners',
+        'compactness': 'maintains compact formation',
+        'flexibility': 'preserves future options',
+        'mobility': 'increases movement flexibility',
+        'opponent_restriction': 'limits opponent opportunities',
+        'endgame_optimization': 'optimizes for endgame',
+        'territory_expansion': 'expands territory control'
+    };
+
+    const reasonsList = topReasons.map(([name, value]) =>
+        `<li><strong>${heuristicNames[name] || name}</strong> (${value.toFixed(1)})</li>`
+    ).join('');
+
+    // Create decision log entry with color coding
+    const decisionEntry = document.createElement('div');
+    decisionEntry.className = `ai-decision-entry ${playerColor}`;
+    decisionEntry.innerHTML = `
+        <div class="ai-decision-header">
+            <div class="ai-decision-player">
+                <div class="player-color-dot ${playerColor}"></div>
+                <strong>${playerColor.toUpperCase()}</strong>
+            </div>
+            <div class="ai-decision-move">
+                <span class="piece-badge">${bestMove.piece_type}</span>
+                <span class="position-badge">at (${bestMove.row}, ${bestMove.col})</span>
+            </div>
+            <div class="ai-decision-score">Score: ${bestMove.score.toFixed(1)}</div>
+        </div>
+        <div class="ai-decision-reasons">
+            <strong>Why this move?</strong>
+            <ul>${reasonsList}</ul>
+        </div>
+        <div class="ai-decision-meta">${totalMoves} positions evaluated</div>
+    `;
+
+    // Add to top of log (most recent first)
+    elements.aiDecisionLog.insertBefore(decisionEntry, elements.aiDecisionLog.firstChild);
+
+    // Auto-scroll to show latest decision
+    if (elements.aiThinkingPanel) {
+        elements.aiDecisionLog.scrollTop = 0;
+    }
 }
 
 function visualizeAIMove(move, isFinal = false) {
@@ -840,9 +896,7 @@ async function executeAIMove() {
 
         // Clear AI visualization
         clearAIVisualization();
-        if (elements.aiThinkingPanel) {
-            elements.aiThinkingPanel.style.display = 'none';
-        }
+        // Keep the AI decision log visible - it's now persistent
 
         updateUI();
 
