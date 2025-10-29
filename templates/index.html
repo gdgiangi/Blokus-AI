@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blokus Game</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>🎮 Blokus Game</h1>
+            <div class="game-info">
+                <div class="turn-indicator">
+                    <span class="label">Current Turn:</span>
+                    <span id="current-player" class="player-name">-</span>
+                </div>
+                <div class="turn-number">
+                    <span class="label">Turn:</span>
+                    <span id="turn-number">0</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Game Controls -->
+        <div class="controls">
+            <div class="player-select">
+                <label for="num-players">Players:</label>
+                <select id="num-players">
+                    <option value="2">2 Players</option>
+                    <option value="3">3 Players</option>
+                    <option value="4" selected>4 Players</option>
+                </select>
+            </div>
+            <button id="new-game-btn" class="btn btn-primary">New Game</button>
+            <button id="reset-game-btn" class="btn btn-secondary" disabled>Reset Game</button>
+            <button id="pass-turn-btn" class="btn btn-warning" disabled>Pass Turn</button>
+        </div>
+
+        <!-- Main Game Area -->
+        <div class="game-area">
+            <!-- Board -->
+            <div class="board-container">
+                <div id="game-board" class="board"></div>
+                <div id="preview-overlay" class="preview-overlay"></div>
+            </div>
+
+            <!-- Sidebar with Pieces -->
+            <div class="sidebar">
+                <div class="scores-section">
+                    <h2>Scores</h2>
+                    <div id="scores" class="scores-list"></div>
+                </div>
+
+                <div class="pieces-section">
+                    <h2>Available Pieces</h2>
+                    <div id="piece-controls" class="piece-controls">
+                        <button id="rotate-btn" class="btn btn-small" disabled>
+                            <span>⟳</span> Rotate
+                        </button>
+                        <button id="flip-h-btn" class="btn btn-small" disabled>
+                            <span>⇄</span> Flip H
+                        </button>
+                        <button id="flip-v-btn" class="btn btn-small" disabled>
+                            <span>⇅</span> Flip V
+                        </button>
+                    </div>
+                    <div id="pieces-container" class="pieces-grid"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Over Modal -->
+        <div id="game-over-modal" class="modal">
+            <div class="modal-content">
+                <h2>🎉 Game Over!</h2>
+                <div id="final-rankings" class="rankings"></div>
+                <button id="close-modal-btn" class="btn btn-primary">Close</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+
+</html>

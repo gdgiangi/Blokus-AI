@@ -1,0 +1,14 @@
+# Blokus Game State Model Requirements
+# No external dependencies required for core game logic
+# Python 3.8+ recommended
+
+# Web interface dependencies
+flask>=2.0.0
+flask-cors>=3.0.0
+
+# Optional: For testing
+# pytest>=7.0.0
+# pytest-cov>=3.0.0
+
+# Optional: For type checking
+# mypy>=0.950
