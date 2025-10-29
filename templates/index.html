@@ -40,6 +40,11 @@
             <button id="pass-turn-btn" class="btn btn-warning" disabled>Pass Turn</button>
         </div>
 
+        <!-- AI Controls -->
+        <div id="ai-controls" class="ai-controls-section">
+            <h3>AI Players</h3>
+        </div>
+
         <!-- Main Game Area -->
         <div class="game-area">
             <!-- Board -->
@@ -50,6 +55,12 @@
 
             <!-- Sidebar with Pieces -->
             <div class="sidebar">
+                <!-- AI Thinking Panel -->
+                <div id="ai-thinking-panel" class="ai-thinking-panel" style="display: none;">
+                    <h2>🤖 AI Thinking...</h2>
+                    <div id="ai-thinking-list" class="ai-thinking-list"></div>
+                </div>
+
                 <div class="scores-section">
                     <h2>Scores</h2>
                     <div id="scores" class="scores-list"></div>

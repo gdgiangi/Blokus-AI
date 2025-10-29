@@ -6,6 +6,9 @@ let gameState = null;
 let selectedPiece = null;
 let currentPieceShape = null;
 let draggedPieceElement = null;
+let aiPlayers = {};  // Track which players are AI
+let aiThinking = false;  // Track if AI is currently "thinking"
+let aiThinkingInterval = null;  // Interval for AI thinking animation
 
 // Color mapping
 const COLORS = {
@@ -31,13 +34,17 @@ const elements = {
     flipVBtn: null,
     gameOverModal: null,
     closeModalBtn: null,
-    finalRankings: null
+    finalRankings: null,
+    aiControlsContainer: null,
+    aiThinkingPanel: null,
+    aiThinkingList: null
 };
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
     initializeElements();
     attachEventListeners();
+    updateAIControls(); // Initialize AI controls
     console.log('Blokus game interface initialized');
 });
 
@@ -57,6 +64,9 @@ function initializeElements() {
     elements.gameOverModal = document.getElementById('game-over-modal');
     elements.closeModalBtn = document.getElementById('close-modal-btn');
     elements.finalRankings = document.getElementById('final-rankings');
+    elements.aiControlsContainer = document.getElementById('ai-controls');
+    elements.aiThinkingPanel = document.getElementById('ai-thinking-panel');
+    elements.aiThinkingList = document.getElementById('ai-thinking-list');
 }
 
 function attachEventListeners() {
@@ -69,15 +79,37 @@ function attachEventListeners() {
     elements.closeModalBtn.addEventListener('click', () => {
         elements.gameOverModal.classList.remove('active');
     });
+
+    // Add event listener for num players change to update AI controls
+    if (elements.numPlayersSelect) {
+        elements.numPlayersSelect.addEventListener('change', updateAIControls);
+    }
 }
 
 // API Functions
 async function createNewGame(numPlayers) {
     try {
+        // Get AI player selections from checkboxes
+        const aiConfig = {};
+        const colors = ['blue', 'yellow', 'red', 'green'];
+
+        for (let i = 0; i < numPlayers; i++) {
+            const color = colors[i];
+            const checkbox = document.getElementById(`ai-${color}`);
+            const strategySelect = document.getElementById(`strategy-${color}`);
+
+            if (checkbox && checkbox.checked && strategySelect) {
+                aiConfig[color] = strategySelect.value;
+            }
+        }
+
         const response = await fetch('/api/game/new', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ num_players: numPlayers })
+            body: JSON.stringify({
+                num_players: numPlayers,
+                ai_players: aiConfig
+            })
         });
 
         if (!response.ok) {
@@ -86,9 +118,13 @@ async function createNewGame(numPlayers) {
 
         const data = await response.json();
         gameState = data.game_state;
+        aiPlayers = data.ai_players || {};
         updateUI();
         elements.resetGameBtn.disabled = false;
         elements.passTurnBtn.disabled = false;
+
+        // Check if it's AI's turn
+        checkAITurn();
     } catch (error) {
         console.error('Error creating game:', error);
         alert('Failed to create game. Please try again.');
@@ -108,9 +144,13 @@ async function resetGame() {
 
         const data = await response.json();
         gameState = data.game_state;
+        aiPlayers = data.ai_players || {};
         selectedPiece = null;
         currentPieceShape = null;
         updateUI();
+
+        // Check if it's AI's turn
+        checkAITurn();
     } catch (error) {
         console.error('Error resetting game:', error);
         alert('Failed to reset game. Please try again.');
@@ -144,6 +184,9 @@ async function placePiece(pieceType, row, col, shape) {
         // Check if game is over
         if (gameState.is_game_over) {
             showGameOver();
+        } else {
+            // Check if it's AI's turn
+            checkAITurn();
         }
 
         return true;
@@ -172,6 +215,9 @@ async function passTurn() {
 
         if (gameState.is_game_over) {
             showGameOver();
+        } else {
+            // Check if it's AI's turn
+            checkAITurn();
         }
     } catch (error) {
         console.error('Error passing turn:', error);
@@ -612,3 +658,239 @@ function getPieceShape(pieceType) {
 
     return shapes[pieceType] || [[0, 0]];
 }
+
+// AI Functions
+async function checkAITurn() {
+    if (!gameState || gameState.is_game_over) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/ai/check');
+        const data = await response.json();
+
+        if (data.is_ai_turn) {
+            // It's an AI player's turn
+            aiPlayers = data.all_ai_players;
+            await performAIMove();
+        }
+    } catch (error) {
+        console.error('Error checking AI turn:', error);
+    }
+}
+
+async function performAIMove() {
+    if (aiThinking) return;  // Already thinking
+
+    aiThinking = true;
+
+    try {
+        // Get AI's evaluated moves
+        const response = await fetch('/api/ai/move', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ show_thinking: true })
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to get AI move');
+        }
+
+        const data = await response.json();
+
+        if (data.action === 'pass') {
+            // AI has no valid moves
+            gameState = data.game_state;
+            updateUI();
+
+            if (gameState.is_game_over) {
+                showGameOver();
+            } else {
+                setTimeout(() => {
+                    aiThinking = false;
+                    checkAITurn();
+                }, 1000);
+            }
+            return;
+        }
+
+        // Show AI thinking process
+        if (data.all_moves && data.all_moves.length > 0) {
+            await showAIThinking(data.all_moves, data.best_move);
+        }
+
+        // Execute the move
+        await executeAIMove();
+
+    } catch (error) {
+        console.error('Error performing AI move:', error);
+        aiThinking = false;
+    }
+}
+
+async function showAIThinking(allMoves, bestMove) {
+    return new Promise((resolve) => {
+        // Show AI thinking panel
+        if (elements.aiThinkingPanel) {
+            elements.aiThinkingPanel.style.display = 'block';
+        }
+
+        if (!elements.aiThinkingList) {
+            resolve();
+            return;
+        }
+
+        elements.aiThinkingList.innerHTML = '';
+
+        // Display top moves being considered
+        const topMoves = allMoves.slice(0, 10);
+        let currentIndex = 0;
+
+        // Clear any existing interval
+        if (aiThinkingInterval) {
+            clearInterval(aiThinkingInterval);
+        }
+
+        // Animate through the moves
+        aiThinkingInterval = setInterval(() => {
+            if (currentIndex < topMoves.length) {
+                const move = topMoves[currentIndex];
+                const isBest = move.piece_type === bestMove.piece_type &&
+                    move.row === bestMove.row &&
+                    move.col === bestMove.col;
+
+                // Add move to list
+                const moveItem = document.createElement('div');
+                moveItem.className = 'ai-move-item' + (isBest ? ' best-move' : '');
+
+                const breakdown = Object.entries(move.heuristic_breakdown)
+                    .map(([name, value]) => `${name}: ${value.toFixed(2)}`)
+                    .join(', ');
+
+                moveItem.innerHTML = `
+                    <div class="ai-move-header">
+                        <span class="ai-move-piece">${move.piece_type}</span>
+                        <span class="ai-move-position">(${move.row}, ${move.col})</span>
+                        <span class="ai-move-score">${move.score.toFixed(2)}</span>
+                    </div>
+                    <div class="ai-move-breakdown">${breakdown}</div>
+                `;
+
+                elements.aiThinkingList.appendChild(moveItem);
+
+                // Visualize move on board
+                visualizeAIMove(move);
+
+                currentIndex++;
+            } else {
+                clearInterval(aiThinkingInterval);
+                aiThinkingInterval = null;
+
+                // Highlight best move
+                setTimeout(() => {
+                    visualizeAIMove(bestMove, true);
+                    setTimeout(resolve, 1000);
+                }, 500);
+            }
+        }, 200);  // Show each move for 200ms
+    });
+}
+
+function visualizeAIMove(move, isFinal = false) {
+    // Clear previous visualization
+    clearAIVisualization();
+
+    const coordinates = move.shape.map(([r, c]) => [move.row + r, move.col + c]);
+
+    coordinates.forEach(([r, c]) => {
+        const cell = document.querySelector(`[data-row="${r}"][data-col="${c}"]`);
+        if (cell) {
+            cell.classList.add('ai-preview');
+            if (isFinal) {
+                cell.classList.add('ai-final');
+            }
+        }
+    });
+}
+
+function clearAIVisualization() {
+    document.querySelectorAll('.cell.ai-preview').forEach(cell => {
+        cell.classList.remove('ai-preview', 'ai-final');
+    });
+}
+
+async function executeAIMove() {
+    try {
+        const response = await fetch('/api/ai/execute', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to execute AI move');
+        }
+
+        const data = await response.json();
+
+        if (data.action === 'pass') {
+            gameState = data.game_state;
+        } else {
+            gameState = data.game_state;
+        }
+
+        // Clear AI visualization
+        clearAIVisualization();
+        if (elements.aiThinkingPanel) {
+            elements.aiThinkingPanel.style.display = 'none';
+        }
+
+        updateUI();
+
+        if (gameState.is_game_over) {
+            showGameOver();
+        } else {
+            // Wait a bit, then check if next player is also AI
+            setTimeout(() => {
+                aiThinking = false;
+                checkAITurn();
+            }, 1000);
+        }
+
+    } catch (error) {
+        console.error('Error executing AI move:', error);
+        aiThinking = false;
+    }
+}
+
+// Update num players select to show AI controls
+function updateAIControls() {
+    const numPlayers = parseInt(elements.numPlayersSelect.value);
+    const colors = ['blue', 'yellow', 'red', 'green'];
+
+    if (!elements.aiControlsContainer) return;
+
+    elements.aiControlsContainer.innerHTML = '<h3>AI Players</h3>';
+
+    for (let i = 0; i < numPlayers; i++) {
+        const color = colors[i];
+        const controlDiv = document.createElement('div');
+        controlDiv.className = 'ai-control';
+        controlDiv.innerHTML = `
+            <label>
+                <input type="checkbox" id="ai-${color}">
+                <span class="ai-color ${color}">${color}</span>
+            </label>
+            <select id="strategy-${color}" class="ai-strategy-select">
+                <option value="optimized">Optimized ⭐</option>
+                <option value="balanced">Balanced</option>
+                <option value="greedy">Greedy</option>
+                <option value="aggressive">Aggressive</option>
+                <option value="expansive">Expansive</option>
+            </select>
+        `;
+        elements.aiControlsContainer.appendChild(controlDiv);
+    }
+}
+
+// Note: updateAIControls is called in DOMContentLoaded and attached as event listener in attachEventListeners
+
