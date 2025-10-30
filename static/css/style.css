@@ -1418,6 +1418,85 @@ body {
     animation: pulse 0.5s ease-in-out 3;
 }
 
+/* Corner Search Visualization */
+.cell.corner-search-cell {
+    position: relative;
+    z-index: 10;
+}
+
+.cell.corner-search-radius-1 {
+    background: rgba(16, 185, 129, 0.3) !important;
+    animation: cornerSearchPulse 0.6s ease-out forwards;
+}
+
+.cell.corner-search-radius-2 {
+    background: rgba(16, 185, 129, 0.22) !important;
+    animation: cornerSearchPulse 0.7s ease-out forwards;
+}
+
+.cell.corner-search-radius-3 {
+    background: rgba(16, 185, 129, 0.15) !important;
+    animation: cornerSearchPulse 0.8s ease-out forwards;
+}
+
+.cell.corner-search-directional {
+    background: rgba(59, 130, 246, 0.25) !important;
+    animation: directionalSearchPulse 0.5s ease-out forwards;
+}
+
+.cell.corner-marker {
+    background: rgba(251, 191, 36, 0.6) !important;
+    box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.9) inset;
+    animation: cornerMarkerPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes cornerSearchPulse {
+    0% {
+        opacity: 0;
+        transform: scale(0.85);
+    }
+
+    40% {
+        opacity: 1;
+        transform: scale(1.02);
+    }
+
+    100% {
+        opacity: 0.7;
+        transform: scale(1);
+    }
+}
+
+@keyframes directionalSearchPulse {
+    0% {
+        opacity: 0;
+    }
+
+    40% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0.6;
+    }
+}
+
+@keyframes cornerMarkerPulse {
+
+    0%,
+    100% {
+        opacity: 1;
+        box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.9) inset;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.8;
+        box-shadow: 0 0 0 3px rgba(251, 191, 36, 1.0) inset;
+        transform: scale(1.05);
+    }
+}
+
 @keyframes pulse {
 
     0%,

@@ -11,7 +11,7 @@ from pathlib import Path
 # Add the project root to the path
 sys.path.append(str(Path(__file__).parent))
 
-from advanced_hyperparameter_tuning import (
+from tuning.advanced_hyperparameter_tuning import (
     TuningConfig, AdvancedHyperparameterTuner, run_comprehensive_tuning,
     _play_championship_game
 )

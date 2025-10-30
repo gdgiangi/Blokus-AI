@@ -24,10 +24,11 @@ class MoveEvaluation:
     piece: Piece
     score: float
     heuristic_breakdown: Dict[str, float]
+    corner_search_data: Optional[Dict] = None  # Visualization data for corner expansion
     
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization"""
-        return {
+        result = {
             'piece_type': self.piece_type.value,
             'row': self.row,
             'col': self.col,
@@ -35,6 +36,9 @@ class MoveEvaluation:
             'score': self.score,
             'heuristic_breakdown': self.heuristic_breakdown
         }
+        if self.corner_search_data:
+            result['corner_search_data'] = self.corner_search_data
+        return result
 
 
 class EnhancedHeuristic:
@@ -315,6 +319,392 @@ class EnhancedHeuristic:
         
         return expansion_score
 
+    @staticmethod
+    def opponent_territory_pressure_score(piece: Piece, game_state: GameState,
+                                         color: PlayerColor, row: int, col: int) -> float:
+        """
+        OPPONENT-AWARE: Score based on pressuring opponent territories and corners.
+        Analyzes each opponent's expansion zones and rewards moves that constrict them.
+        """
+        coordinates = piece.translate(row, col)
+        board = game_state.board
+        pressure_score = 0.0
+        
+        # For each opponent
+        for opponent_color in game_state.players.keys():
+            if opponent_color == color:
+                continue
+            
+            opponent_player = game_state.get_player(opponent_color)
+            if not opponent_player or opponent_player.has_passed:
+                continue
+            
+            # Find all opponent corners (their expansion points)
+            opponent_corners = set()
+            for r in range(Board.BOARD_SIZE):
+                for c in range(Board.BOARD_SIZE):
+                    if board.get_cell(r, c) == opponent_color:
+                        # Check diagonals for potential corners
+                        for diag_r, diag_c in board.get_diagonal_cells(r, c):
+                            if board.is_empty(diag_r, diag_c):
+                                # Verify it's a valid corner
+                                is_valid = True
+                                for adj_r, adj_c in board.get_adjacent_cells(diag_r, diag_c):
+                                    if board.get_cell(adj_r, adj_c) == opponent_color:
+                                        is_valid = False
+                                        break
+                                if is_valid:
+                                    opponent_corners.add((diag_r, diag_c))
+            
+            # Score based on proximity to opponent corners
+            for opp_r, opp_c in opponent_corners:
+                for my_r, my_c in coordinates:
+                    distance = abs(my_r - opp_r) + abs(my_c - opp_c)  # Manhattan distance
+                    
+                    # Close proximity to opponent corners = high pressure
+                    if distance <= 2:
+                        pressure_score += 3.0  # Very close - immediate threat
+                    elif distance <= 4:
+                        pressure_score += 1.5  # Close - pressure zone
+                    elif distance <= 6:
+                        pressure_score += 0.5  # Medium distance - zone control
+        
+        return pressure_score
+    
+    @staticmethod
+    def opponent_mobility_restriction_score(piece: Piece, game_state: GameState,
+                                           color: PlayerColor, row: int, col: int) -> float:
+        """
+        OPPONENT-AWARE: Measure how much this move reduces opponent expansion options.
+        Counts opponent corners that become unusable or less valuable.
+        """
+        coordinates = piece.translate(row, col)
+        board = game_state.board
+        restriction_score = 0.0
+        
+        # Simulate placing the piece
+        test_board = copy.deepcopy(board)
+        test_board.place_piece(coordinates, color)
+        
+        # For each opponent
+        for opponent_color in game_state.players.keys():
+            if opponent_color == color:
+                continue
+            
+            opponent_player = game_state.get_player(opponent_color)
+            if not opponent_player or opponent_player.has_passed:
+                continue
+            
+            # Count how many of opponent's current corners become blocked/restricted
+            for r in range(Board.BOARD_SIZE):
+                for c in range(Board.BOARD_SIZE):
+                    if board.get_cell(r, c) == opponent_color:
+                        for diag_r, diag_c in board.get_diagonal_cells(r, c):
+                            if board.is_empty(diag_r, diag_c):
+                                # Check if this corner is still valid after our move
+                                corner_was_valid = True
+                                for adj_r, adj_c in board.get_adjacent_cells(diag_r, diag_c):
+                                    if board.get_cell(adj_r, adj_c) == opponent_color:
+                                        corner_was_valid = False
+                                        break
+                                
+                                if corner_was_valid:
+                                    # Check if our piece blocks or restricts this corner
+                                    if test_board.get_cell(diag_r, diag_c) == color:
+                                        # We directly occupy their corner
+                                        restriction_score += 2.0
+                                    else:
+                                        # Check if we reduce the expansion value around this corner
+                                        open_space_before = 0
+                                        open_space_after = 0
+                                        
+                                        for dr in [-1, 0, 1]:
+                                            for dc in [-1, 0, 1]:
+                                                nr, nc = diag_r + dr, diag_c + dc
+                                                if board.is_valid_position(nr, nc):
+                                                    if board.is_empty(nr, nc):
+                                                        open_space_before += 1
+                                                    if test_board.is_empty(nr, nc):
+                                                        open_space_after += 1
+                                        
+                                        space_reduction = open_space_before - open_space_after
+                                        if space_reduction > 0:
+                                            restriction_score += space_reduction * 0.3
+        
+        return restriction_score
+    
+    @staticmethod
+    def opponent_threat_assessment_score(piece: Piece, game_state: GameState,
+                                        color: PlayerColor, row: int, col: int) -> float:
+        """
+        OPPONENT-AWARE: Identify and respond to opponent threats.
+        Analyzes opponent positions, remaining pieces, and expansion potential.
+        """
+        coordinates = piece.translate(row, col)
+        board = game_state.board
+        threat_score = 0.0
+        
+        player = game_state.get_player(color)
+        if not player:
+            return 0.0
+        
+        # Analyze each opponent
+        for opponent_color in game_state.players.keys():
+            if opponent_color == color:
+                continue
+            
+            opponent_player = game_state.get_player(opponent_color)
+            if not opponent_player or opponent_player.has_passed:
+                continue
+            
+            # Threat level based on opponent strength
+            opponent_pieces_remaining = len(opponent_player.available_pieces)
+            our_pieces_remaining = len(player.available_pieces)
+            
+            # If opponent has more pieces, they're more threatening
+            piece_advantage = opponent_pieces_remaining - our_pieces_remaining
+            
+            # Count opponent's active corners (expansion capability)
+            opponent_active_corners = 0
+            opponent_corner_positions = []
+            
+            for r in range(Board.BOARD_SIZE):
+                for c in range(Board.BOARD_SIZE):
+                    if board.get_cell(r, c) == opponent_color:
+                        for diag_r, diag_c in board.get_diagonal_cells(r, c):
+                            if board.is_empty(diag_r, diag_c):
+                                is_valid = True
+                                for adj_r, adj_c in board.get_adjacent_cells(diag_r, diag_c):
+                                    if board.get_cell(adj_r, adj_c) == opponent_color:
+                                        is_valid = False
+                                        break
+                                if is_valid:
+                                    opponent_active_corners += 1
+                                    opponent_corner_positions.append((diag_r, diag_c))
+            
+            # Threat multiplier based on opponent's expansion capability
+            threat_multiplier = 1.0
+            if opponent_active_corners > 8:
+                threat_multiplier = 1.5  # Opponent is highly mobile
+            elif opponent_active_corners > 5:
+                threat_multiplier = 1.2  # Opponent has good options
+            elif opponent_active_corners < 3:
+                threat_multiplier = 0.7  # Opponent is struggling
+            
+            # Reward moves that defend against threatening opponents
+            if piece_advantage > 3:  # Opponent is ahead
+                # Check if our move creates a defensive barrier
+                for my_r, my_c in coordinates:
+                    for opp_corner_r, opp_corner_c in opponent_corner_positions:
+                        distance = abs(my_r - opp_corner_r) + abs(my_c - opp_corner_c)
+                        if distance <= 3:
+                            threat_score += 1.0 * threat_multiplier
+            
+            # Bonus for blocking the leading opponent
+            if piece_advantage > 0:
+                threat_score *= (1.0 + piece_advantage * 0.1)
+        
+        return threat_score
+    
+    @staticmethod
+    def strategic_positioning_score(piece: Piece, game_state: GameState,
+                                   color: PlayerColor, row: int, col: int) -> float:
+        """
+        OPPONENT-AWARE: Advanced board positioning that considers opponent locations.
+        Creates strategic zones of control and denies key areas to opponents.
+        """
+        coordinates = piece.translate(row, col)
+        board = game_state.board
+        position_score = 0.0
+        
+        # Calculate board control zones
+        center = 10  # Board center (20x20, so center is at 10)
+        
+        # Analyze territory control in quadrants
+        quadrant_occupancy = {
+            'nw': {'us': 0, 'them': 0},  # Northwest
+            'ne': {'us': 0, 'them': 0},  # Northeast
+            'sw': {'us': 0, 'them': 0},  # Southwest
+            'se': {'us': 0, 'them': 0}   # Southeast
+        }
+        
+        # Count current occupancy
+        for r in range(Board.BOARD_SIZE):
+            for c in range(Board.BOARD_SIZE):
+                cell_color = board.get_cell(r, c)
+                if cell_color is None:
+                    continue
+                
+                # Determine quadrant
+                quad_key = ('n' if r < center else 's') + ('w' if c < center else 'e')
+                
+                if cell_color == color:
+                    quadrant_occupancy[quad_key]['us'] += 1
+                else:
+                    quadrant_occupancy[quad_key]['them'] += 1
+        
+        # Reward moves in underrepresented quadrants
+        for my_r, my_c in coordinates:
+            my_quad = ('n' if my_r < center else 's') + ('w' if my_c < center else 'e')
+            
+            us_count = quadrant_occupancy[my_quad]['us']
+            them_count = quadrant_occupancy[my_quad]['them']
+            
+            # Reward expanding into quadrants where opponents dominate
+            if them_count > us_count:
+                position_score += 1.5
+            # Reward balanced expansion
+            elif us_count < 10:
+                position_score += 0.5
+        
+        # Reward control of key strategic lines (diagonals and center lines)
+        for my_r, my_c in coordinates:
+            # Main diagonals
+            if my_r == my_c or my_r + my_c == 19:
+                position_score += 0.8
+            
+            # Center lines (creates cross-board pressure)
+            if 8 <= my_r <= 11 or 8 <= my_c <= 11:
+                position_score += 0.6
+        
+        return position_score
+
+    @staticmethod
+    def corner_path_potential_score(piece: Piece, game_state: GameState,
+                                    color: PlayerColor, row: int, col: int,
+                                    collect_search_data: bool = False) -> Tuple[float, Optional[Dict]]:
+        """
+        NEW: Analyze the open space and expansion potential around each new corner.
+        Higher score for corners with more open space and expansion opportunities.
+        
+        If collect_search_data is True, returns (score, search_visualization_data).
+        Otherwise returns (score, None).
+        """
+        coordinates = piece.translate(row, col)
+        board = game_state.board
+        
+        total_potential = 0.0
+        all_corners_data = [] if collect_search_data else None
+        
+        # For each cell of the placed piece
+        for r, c in coordinates:
+            # Check each diagonal (potential new corner)
+            for diag_r, diag_c in board.get_diagonal_cells(r, c):
+                if not board.is_empty(diag_r, diag_c):
+                    continue
+                
+                # Verify this is a valid corner (not edge-adjacent to our color)
+                is_valid_corner = True
+                for adj_r, adj_c in board.get_adjacent_cells(diag_r, diag_c):
+                    if board.get_cell(adj_r, adj_c) == color:
+                        is_valid_corner = False
+                        break
+                
+                if not is_valid_corner:
+                    continue
+                
+                # Analyze the potential around this corner
+                corner_potential = 0.0
+                cells_examined_list = [] if collect_search_data else None
+                
+                # 1. Count open space in expanding radius around corner (INCREASED RANGE)
+                # Extended from radius 3 to radius 6 for better global awareness
+                for radius in [1, 2, 3, 4, 5, 6]:
+                    open_cells_at_radius = 0
+                    total_cells_at_radius = 0
+                    
+                    for dr in range(-radius, radius + 1):
+                        for dc in range(-radius, radius + 1):
+                            if abs(dr) == radius or abs(dc) == radius:  # Cells at exact radius
+                                nr, nc = diag_r + dr, diag_c + dc
+                                if board.is_valid_position(nr, nc):
+                                    total_cells_at_radius += 1
+                                    is_empty = board.is_empty(nr, nc)
+                                    if is_empty:
+                                        open_cells_at_radius += 1
+                                    
+                                    # Collect search visualization data (only up to radius 3 for UI)
+                                    if collect_search_data and cells_examined_list is not None and radius <= 3:
+                                        cells_examined_list.append({
+                                            'row': nr,
+                                            'col': nc,
+                                            'radius': radius,
+                                            'is_empty': is_empty,
+                                            'cell_type': 'expansion_search'
+                                        })
+                    
+                    if total_cells_at_radius > 0:
+                        openness_ratio = open_cells_at_radius / total_cells_at_radius
+                        # Updated weighting: still favor closer cells but value distant open space
+                        # Radius 1-3: high weight (original behavior)
+                        # Radius 4-6: moderate weight for global awareness
+                        if radius <= 3:
+                            corner_potential += openness_ratio * (4 - radius)
+                        else:
+                            # Radius 4, 5, 6 get weights: 0.6, 0.4, 0.3
+                            corner_potential += openness_ratio * (1.0 / radius)
+                
+                # 2. Bonus for corners near board edges (more directional freedom)
+                edge_distance = min(diag_r, 19 - diag_r, diag_c, 19 - diag_c)
+                if edge_distance <= 2:
+                    corner_potential += 1.0
+                
+                # 3. Penalty if corner is surrounded by opponent pieces
+                opponent_adjacent = 0
+                for adj_r, adj_c in board.get_adjacent_cells(diag_r, diag_c):
+                    cell_color = board.get_cell(adj_r, adj_c)
+                    if cell_color != color and cell_color is not None:
+                        opponent_adjacent += 1
+                
+                if opponent_adjacent >= 2:
+                    corner_potential *= 0.5  # Reduce potential if hemmed in
+                
+                # 4. Bonus for corners that could connect to multiple directions (EXTENDED RANGE)
+                # Extended from 2-3 cells to 2-5 cells for better global vision
+                connection_directions = 0
+                for direction in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
+                    dr, dc = direction
+                    # Look further in each direction for open space
+                    open_in_direction = True
+                    for dist in [2, 3, 4, 5]:
+                        nr, nc = diag_r + dr * dist, diag_c + dc * dist
+                        if not board.is_valid_position(nr, nc) or not board.is_empty(nr, nc):
+                            open_in_direction = False
+                            break
+
+                        # Collect directional search data (only dist 2-6 for UI visualization)
+                        if collect_search_data and cells_examined_list is not None and board.is_valid_position(nr, nc) and dist <= 6:
+                            cells_examined_list.append({
+                                'row': nr,
+                                'col': nc,
+                                'radius': 0,  # Special marker for directional search
+                                'is_empty': board.is_empty(nr, nc),
+                                'cell_type': 'directional_search',
+                                'direction': direction
+                            })
+                    
+                    if open_in_direction:
+                        connection_directions += 1
+                
+                # Increased bonus for multi-directional expansion (from 0.5 to 1.0 per direction)
+                corner_potential += connection_directions * 1.0
+                
+                total_potential += corner_potential
+                
+                # Store corner search data
+                if collect_search_data and all_corners_data is not None:
+                    all_corners_data.append({
+                        'position': [diag_r, diag_c],
+                        'potential': corner_potential,
+                        'cells_examined': cells_examined_list
+                    })
+        
+        # Return results
+        if collect_search_data:
+            return (total_potential, {'corners': all_corners_data})
+        else:
+            return (total_potential, None)
+
 
 class AIStrategy(ABC):
     """Abstract base class for AI strategies"""
@@ -340,14 +730,33 @@ class AIStrategy(ABC):
     
     def evaluate_move(self, piece: Piece, piece_type: PieceType, 
                      row: int, col: int, game_state: GameState, 
-                     color: PlayerColor) -> MoveEvaluation:
-        """Evaluate a single move using all configured heuristics"""
+                     color: PlayerColor, collect_visualization: bool = False) -> MoveEvaluation:
+        """
+        Evaluate a single move using all configured heuristics.
+        
+        If collect_visualization is True, collects corner expansion search data
+        for UI visualization.
+        """
         heuristic_breakdown = {}
         total_score = 0.0
+        corner_search_data = None
         
         for heuristic_name, (heuristic_func, weight) in self.heuristics.items():
             try:
-                heuristic_score = heuristic_func(piece, game_state, color, row, col)
+                # Special handling for corner_path_potential to collect visualization data
+                if heuristic_name == "corner_path_potential" and collect_visualization:
+                    heuristic_score, search_data = heuristic_func(
+                        piece, game_state, color, row, col, collect_search_data=True
+                    )
+                    corner_search_data = search_data
+                else:
+                    # For corner_path_potential without visualization
+                    if heuristic_name == "corner_path_potential":
+                        result = heuristic_func(piece, game_state, color, row, col, collect_search_data=False)
+                        heuristic_score = result[0] if isinstance(result, tuple) else result
+                    else:
+                        heuristic_score = heuristic_func(piece, game_state, color, row, col)
+                
                 weighted_score = heuristic_score * weight
                 heuristic_breakdown[heuristic_name] = weighted_score
                 total_score += weighted_score
@@ -361,7 +770,8 @@ class AIStrategy(ABC):
             col=col,
             piece=piece,
             score=total_score,
-            heuristic_breakdown=heuristic_breakdown
+            heuristic_breakdown=heuristic_breakdown,
+            corner_search_data=corner_search_data
         )
     
     @abstractmethod
@@ -403,47 +813,234 @@ class AIStrategy(ABC):
             return None
         
         return self.select_move(all_moves)
+    
+    def choose_move_with_visualization(self, game_state: GameState, 
+                                      color: PlayerColor) -> Optional[MoveEvaluation]:
+        """
+        Choose the best move and include visualization data for the selected move.
+        This re-evaluates only the best move with visualization enabled.
+        """
+        # First, find the best move using normal evaluation
+        best_move = self.choose_move(game_state, color)
+        
+        if not best_move:
+            return None
+        
+        # Re-evaluate the best move with visualization data
+        best_move_with_viz = self.evaluate_move(
+            best_move.piece,
+            best_move.piece_type,
+            best_move.row,
+            best_move.col,
+            game_state,
+            color,
+            collect_visualization=True
+        )
+        
+        return best_move_with_viz
 
 
 # Enhanced Strategies
 class OptimizedAIStrategy(AIStrategy):
-    """Optimized AI with tuned weights from hyperparameter search"""
+    """Optimized AI with tuned weights from hyperparameter search (Champion Pool Baseline)"""
     
     def __init__(self, weights: Optional[Dict[str, float]] = None):
-        super().__init__("Optimized AI")
+        super().__init__("Champion Optimized AI")
         
-        # Default optimized weights (updated from overnight marathon tuning - 96.7% win rate!)
+        # 🏆 CHAMPION WEIGHTS - Adaptive Opponent Training
+        # Updated: 2025-10-30 14:27:58 (GeniusTime diverse pool session)
+        # Trained against 5 diverse champion archetypes using adaptive opponents
+        # Defensive-oriented strategy with high survival and endgame focus
         default_weights = {
-            "piece_size": 1.46,
-            "new_paths": 1.97,
-            "blocked_opponents": 1.62,
-            "corner_control": 1.26,
-            "compactness": 1.08,
-            "flexibility": 1.10,
-            "mobility": 0.66,
-            "opponent_restriction": 0.88,
-            "endgame_optimization": 1.86,
-            "territory_expansion": 1.12
+            "piece_size": 2.00,
+            "blocked_opponents": 0.80,
+            "corner_control": 1.20,
+            "compactness": 2.00,
+            "mobility": 2.50,
+            "opponent_restriction": 0.60,
+            "endgame_optimization": 2.50,
+            "corner_path_potential": 4.00,
+            "opponent_territory_pressure": 0.50,
+            "opponent_mobility_restriction": 0.80,
+            "opponent_threat_assessment": 2.00,
+            "strategic_positioning": 2.00
         }
         
         weights = weights or default_weights
         
-        self.add_heuristic("piece_size", EnhancedHeuristic.piece_size_score, weights.get("piece_size", 1.8))
-        self.add_heuristic("new_paths", EnhancedHeuristic.new_paths_score, weights.get("new_paths", 3.2))
-        self.add_heuristic("blocked_opponents", EnhancedHeuristic.blocked_opponents_score, weights.get("blocked_opponents", 2.1))
-        self.add_heuristic("corner_control", EnhancedHeuristic.corner_control_score, weights.get("corner_control", 1.6))
-        self.add_heuristic("compactness", EnhancedHeuristic.compactness_score, weights.get("compactness", 0.9))
-        self.add_heuristic("flexibility", EnhancedHeuristic.flexibility_score, weights.get("flexibility", 2.4))
-        self.add_heuristic("mobility", EnhancedHeuristic.mobility_score, weights.get("mobility", 1.3))
-        self.add_heuristic("opponent_restriction", EnhancedHeuristic.opponent_restriction_score, weights.get("opponent_restriction", 2.8))
-        self.add_heuristic("endgame_optimization", EnhancedHeuristic.endgame_optimization_score, weights.get("endgame_optimization", 1.5))
-        self.add_heuristic("territory_expansion", EnhancedHeuristic.territory_expansion_score, weights.get("territory_expansion", 1.1))
+        # All 12 heuristics with uniform starting weights
+        self.add_heuristic("piece_size", EnhancedHeuristic.piece_size_score, weights.get("piece_size", 1.0))
+        self.add_heuristic("blocked_opponents", EnhancedHeuristic.blocked_opponents_score, weights.get("blocked_opponents", 1.0))
+        self.add_heuristic("corner_control", EnhancedHeuristic.corner_control_score, weights.get("corner_control", 1.0))
+        self.add_heuristic("compactness", EnhancedHeuristic.compactness_score, weights.get("compactness", 1.0))
+        self.add_heuristic("mobility", EnhancedHeuristic.mobility_score, weights.get("mobility", 1.0))
+        self.add_heuristic("opponent_restriction", EnhancedHeuristic.opponent_restriction_score, weights.get("opponent_restriction", 1.0))
+        self.add_heuristic("endgame_optimization", EnhancedHeuristic.endgame_optimization_score, weights.get("endgame_optimization", 1.0))
+        self.add_heuristic("corner_path_potential", EnhancedHeuristic.corner_path_potential_score, weights.get("corner_path_potential", 1.0))
+        # Opponent-aware heuristics with equal starting weights
+        self.add_heuristic("opponent_territory_pressure", EnhancedHeuristic.opponent_territory_pressure_score, weights.get("opponent_territory_pressure", 1.0))
+        self.add_heuristic("opponent_mobility_restriction", EnhancedHeuristic.opponent_mobility_restriction_score, weights.get("opponent_mobility_restriction", 1.0))
+        self.add_heuristic("opponent_threat_assessment", EnhancedHeuristic.opponent_threat_assessment_score, weights.get("opponent_threat_assessment", 1.0))
+        self.add_heuristic("strategic_positioning", EnhancedHeuristic.strategic_positioning_score, weights.get("strategic_positioning", 1.0))
     
     def select_move(self, evaluations: List[MoveEvaluation]) -> Optional[MoveEvaluation]:
         """Select move with highest score"""
         if not evaluations:
             return None
         return max(evaluations, key=lambda e: e.score)
+
+
+class AggressiveOptimizedStrategy(AIStrategy):
+    """Aggressive AI focused on opponent disruption and territorial dominance"""
+    
+    def __init__(self, weights: Optional[Dict[str, float]] = None):
+        super().__init__("Aggressive Dominator AI")
+        
+        # Aggressive weights - MAXIMIZE opponent disruption and territory control
+        default_weights = {
+            "piece_size": 0.8,  # Less emphasis on piece size
+            "blocked_opponents": 4.5,  # Very high opponent blocking
+            "corner_control": 2.5,  # High board control
+            # "compactness": REMOVED - aggressive play spreads out
+            # "mobility": REMOVED - focus on offense, not self-preservation
+            "opponent_restriction": 3.5,  # Very high opponent restriction
+            "endgame_optimization": 0.8,  # Lower endgame optimization
+            "corner_path_potential": 1.5,  # Moderate path potential (less conservative)
+            # NEW: Aggressive opponent-aware heuristics
+            "opponent_territory_pressure": 3.0,  # MAXIMUM pressure on opponents
+            "opponent_mobility_restriction": 4.0,  # MAXIMUM mobility restriction
+            "opponent_threat_assessment": 1.5,  # Target threatening opponents
+            "strategic_positioning": 2.0  # Control key zones aggressively
+        }
+        
+        weights = weights or default_weights
+        
+        # Aggressive heuristic set - focus on opponent disruption
+        self.add_heuristic("piece_size", EnhancedHeuristic.piece_size_score, weights.get("piece_size", 0.8))
+        self.add_heuristic("blocked_opponents", EnhancedHeuristic.blocked_opponents_score, weights.get("blocked_opponents", 4.5))
+        self.add_heuristic("corner_control", EnhancedHeuristic.corner_control_score, weights.get("corner_control", 2.5))
+        self.add_heuristic("opponent_restriction", EnhancedHeuristic.opponent_restriction_score, weights.get("opponent_restriction", 3.5))
+        self.add_heuristic("endgame_optimization", EnhancedHeuristic.endgame_optimization_score, weights.get("endgame_optimization", 0.8))
+        self.add_heuristic("corner_path_potential", EnhancedHeuristic.corner_path_potential_score, weights.get("corner_path_potential", 1.5))
+        # Opponent-aware heuristics (aggressive values)
+        self.add_heuristic("opponent_territory_pressure", EnhancedHeuristic.opponent_territory_pressure_score, weights.get("opponent_territory_pressure", 3.0))
+        self.add_heuristic("opponent_mobility_restriction", EnhancedHeuristic.opponent_mobility_restriction_score, weights.get("opponent_mobility_restriction", 4.0))
+        self.add_heuristic("opponent_threat_assessment", EnhancedHeuristic.opponent_threat_assessment_score, weights.get("opponent_threat_assessment", 1.5))
+        self.add_heuristic("strategic_positioning", EnhancedHeuristic.strategic_positioning_score, weights.get("strategic_positioning", 2.0))
+    
+    def select_move(self, evaluations: List[MoveEvaluation]) -> Optional[MoveEvaluation]:
+        """Select move with highest score, with strong preference for opponent disruption"""
+        if not evaluations:
+            return None
+        
+        # Sort by total score, then by opponent disruption metrics for tie-breaking
+        return max(evaluations, key=lambda e: (
+            e.score, 
+            e.heuristic_breakdown.get("blocked_opponents", 0) + 
+            e.heuristic_breakdown.get("opponent_restriction", 0) +
+            e.heuristic_breakdown.get("opponent_mobility_restriction", 0) +
+            e.heuristic_breakdown.get("opponent_territory_pressure", 0)
+        ))
+
+
+class BalancedOptimizedStrategy(AIStrategy):
+    """Balanced AI with equal emphasis on offense and defense"""
+    
+    def __init__(self, weights: Optional[Dict[str, float]] = None):
+        super().__init__("Balanced Strategist AI")
+        
+        # Balanced weights - moderate values across all heuristics
+        default_weights = {
+            "piece_size": 1.5,  # Good piece size preference
+            "blocked_opponents": 1.8,  # Moderate opponent blocking
+            "corner_control": 1.8,  # Moderate board control
+            "compactness": 1.2,  # Good compactness
+            "mobility": 1.5,  # High mobility preservation
+            "opponent_restriction": 1.2,  # Moderate opponent restriction
+            "endgame_optimization": 1.8,  # High endgame awareness
+            "corner_path_potential": 2.5,  # High path potential for flexibility
+            # NEW: Balanced opponent-aware heuristics
+            "opponent_territory_pressure": 1.2,  # Moderate pressure
+            "opponent_mobility_restriction": 1.5,  # Moderate restriction
+            "opponent_threat_assessment": 1.5,  # Good threat awareness
+            "strategic_positioning": 2.0  # Strong positioning
+        }
+        
+        weights = weights or default_weights
+        
+        # Same heuristics as optimized, but with balanced weights
+        self.add_heuristic("piece_size", EnhancedHeuristic.piece_size_score, weights.get("piece_size", 1.5))
+        self.add_heuristic("blocked_opponents", EnhancedHeuristic.blocked_opponents_score, weights.get("blocked_opponents", 1.8))
+        self.add_heuristic("corner_control", EnhancedHeuristic.corner_control_score, weights.get("corner_control", 1.8))
+        self.add_heuristic("compactness", EnhancedHeuristic.compactness_score, weights.get("compactness", 1.2))
+        self.add_heuristic("mobility", EnhancedHeuristic.mobility_score, weights.get("mobility", 1.5))
+        self.add_heuristic("opponent_restriction", EnhancedHeuristic.opponent_restriction_score, weights.get("opponent_restriction", 1.2))
+        self.add_heuristic("endgame_optimization", EnhancedHeuristic.endgame_optimization_score, weights.get("endgame_optimization", 1.8))
+        self.add_heuristic("corner_path_potential", EnhancedHeuristic.corner_path_potential_score, weights.get("corner_path_potential", 2.5))
+        # Opponent-aware heuristics with balanced weights
+        self.add_heuristic("opponent_territory_pressure", EnhancedHeuristic.opponent_territory_pressure_score, weights.get("opponent_territory_pressure", 1.2))
+        self.add_heuristic("opponent_mobility_restriction", EnhancedHeuristic.opponent_mobility_restriction_score, weights.get("opponent_mobility_restriction", 1.5))
+        self.add_heuristic("opponent_threat_assessment", EnhancedHeuristic.opponent_threat_assessment_score, weights.get("opponent_threat_assessment", 1.5))
+        self.add_heuristic("strategic_positioning", EnhancedHeuristic.strategic_positioning_score, weights.get("strategic_positioning", 2.0))
+    
+    def select_move(self, evaluations: List[MoveEvaluation]) -> Optional[MoveEvaluation]:
+        """Select move with highest score"""
+        if not evaluations:
+            return None
+        return max(evaluations, key=lambda e: e.score)
+
+
+class DefensiveOptimizedStrategy(AIStrategy):
+    """Defensive AI focused on self-preservation and adaptive play"""
+    
+    def __init__(self, weights: Optional[Dict[str, float]] = None):
+        super().__init__("Defensive Survivor AI")
+        
+        # Defensive weights - emphasize self-preservation and adaptability
+        default_weights = {
+            "piece_size": 2.0,  # High piece size preference (get pieces out)
+            "blocked_opponents": 0.8,  # Lower opponent blocking (less aggressive)
+            "corner_control": 1.2,  # Moderate board control
+            "compactness": 2.0,  # High compactness (build strong territories)
+            "mobility": 2.5,  # Very high mobility preservation
+            "opponent_restriction": 0.6,  # Lower opponent restriction
+            "endgame_optimization": 2.5,  # Very high endgame awareness
+            "corner_path_potential": 4.0,  # Very high path potential for flexibility
+            "opponent_territory_pressure": 0.5,  # Low pressure (defensive, not aggressive)
+            "opponent_mobility_restriction": 0.8,  # Low restriction (focus on own mobility)
+            "opponent_threat_assessment": 2.0,  # High threat awareness (defensive priority)
+            "strategic_positioning": 2.0  # High positioning (secure key areas)
+        }
+        
+        weights = weights or default_weights
+        
+        # All heuristics with defensive weights - emphasize self-preservation
+        self.add_heuristic("piece_size", EnhancedHeuristic.piece_size_score, weights.get("piece_size", 2.0))
+        self.add_heuristic("blocked_opponents", EnhancedHeuristic.blocked_opponents_score, weights.get("blocked_opponents", 0.8))
+        self.add_heuristic("corner_control", EnhancedHeuristic.corner_control_score, weights.get("corner_control", 1.2))
+        self.add_heuristic("compactness", EnhancedHeuristic.compactness_score, weights.get("compactness", 2.0))
+        self.add_heuristic("mobility", EnhancedHeuristic.mobility_score, weights.get("mobility", 2.5))
+        self.add_heuristic("opponent_restriction", EnhancedHeuristic.opponent_restriction_score, weights.get("opponent_restriction", 0.6))
+        self.add_heuristic("endgame_optimization", EnhancedHeuristic.endgame_optimization_score, weights.get("endgame_optimization", 2.5))
+        self.add_heuristic("corner_path_potential", EnhancedHeuristic.corner_path_potential_score, weights.get("corner_path_potential", 4.0))
+        # Opponent-aware heuristics with defensive focus
+        self.add_heuristic("opponent_territory_pressure", EnhancedHeuristic.opponent_territory_pressure_score, weights.get("opponent_territory_pressure", 0.5))
+        self.add_heuristic("opponent_mobility_restriction", EnhancedHeuristic.opponent_mobility_restriction_score, weights.get("opponent_mobility_restriction", 0.8))
+        self.add_heuristic("opponent_threat_assessment", EnhancedHeuristic.opponent_threat_assessment_score, weights.get("opponent_threat_assessment", 2.0))
+        self.add_heuristic("strategic_positioning", EnhancedHeuristic.strategic_positioning_score, weights.get("strategic_positioning", 2.0))
+    
+    def select_move(self, evaluations: List[MoveEvaluation]) -> Optional[MoveEvaluation]:
+        """Select move with preference for mobility and path potential"""
+        if not evaluations:
+            return None
+        
+        # Sort by total score, then by mobility and path potential for tie-breaking
+        return max(evaluations, key=lambda e: (
+            e.score,
+            e.heuristic_breakdown.get("mobility", 0) + 
+            e.heuristic_breakdown.get("corner_path_potential", 0) +
+            e.heuristic_breakdown.get("endgame_optimization", 0)
+        ))
 
 
 class AIPlayer:
@@ -457,6 +1054,10 @@ class AIPlayer:
         """Get the AI's chosen move"""
         return self.strategy.choose_move(game_state, self.color)
     
+    def get_move_with_visualization(self, game_state: GameState) -> Optional[MoveEvaluation]:
+        """Get the AI's chosen move with corner expansion visualization data"""
+        return self.strategy.choose_move_with_visualization(game_state, self.color)
+    
     def get_all_evaluated_moves(self, game_state: GameState) -> List[MoveEvaluation]:
         """Get all possible moves with evaluations"""
         all_moves = self.strategy.get_all_possible_moves(game_state, self.color)
@@ -464,24 +1065,27 @@ class AIPlayer:
 
 
 def create_ai_player(color: PlayerColor, strategy_name: str = "optimized") -> AIPlayer:
-    """Factory function to create AI players"""
-    from ai_player import GreedyAIStrategy, BalancedAIStrategy, AggressiveAIStrategy, ExpansiveAIStrategy
+    """Factory function to create AI players with diverse optimized strategies"""
     
-    if strategy_name.lower() == "optimized":
-        strategy = OptimizedAIStrategy()
-    elif strategy_name.lower() == "mcts":
-        # Import MCTS here to avoid circular imports
-        from mcts_ai import MCTSAIStrategy
-        strategy = MCTSAIStrategy(time_limit=15.0, max_iterations=1000)
-    elif strategy_name.lower() == "greedy":
-        strategy = GreedyAIStrategy()
-    elif strategy_name.lower() == "balanced":
-        strategy = BalancedAIStrategy()
-    elif strategy_name.lower() == "aggressive":
-        strategy = AggressiveAIStrategy()
-    elif strategy_name.lower() == "expansive":
-        strategy = ExpansiveAIStrategy()
+    # Map strategy names to new optimized strategy classes
+    strategy_mapping = {
+        "optimized": OptimizedAIStrategy,
+        "aggressive": AggressiveOptimizedStrategy,
+        "balanced": BalancedOptimizedStrategy,
+        "defensive": DefensiveOptimizedStrategy
+    }
+    
+    # Handle MCTS separately
+    if strategy_name.lower() == "mcts":
+        try:
+            from mcts_ai import MCTSAIStrategy
+            strategy = MCTSAIStrategy(time_limit=15.0, max_iterations=1000)
+        except ImportError:
+            # Fallback to optimized if MCTS not available
+            strategy = OptimizedAIStrategy()
     else:
-        strategy = OptimizedAIStrategy()
+        # Get strategy class, default to optimized
+        strategy_class = strategy_mapping.get(strategy_name.lower(), OptimizedAIStrategy)
+        strategy = strategy_class()
     
     return AIPlayer(color, strategy)

@@ -9,7 +9,7 @@ from pathlib import Path
 # Add project root to path
 sys.path.append(str(Path(__file__).parent))
 
-from advanced_hyperparameter_tuning import run_comprehensive_tuning
+from tuning.advanced_hyperparameter_tuning import run_comprehensive_tuning
 
 
 def quick_exploration():

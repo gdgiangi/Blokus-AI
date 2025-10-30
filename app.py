@@ -269,7 +269,7 @@ def ai_move():
     """
     Get AI move for the current player.
     Optionally returns all evaluated moves for visualization.
-    Expected JSON: {"show_thinking": true/false}
+    Expected JSON: {"show_thinking": true/false, "show_corner_search": true/false}
     """
     global game, ai_players
     
@@ -279,6 +279,7 @@ def ai_move():
     try:
         data = request.get_json() or {}
         show_thinking = data.get('show_thinking', True)
+        show_corner_search = data.get('show_corner_search', True)
         
         current_color = game.get_current_color()
         
@@ -291,8 +292,11 @@ def ai_move():
         # Check if this is an MCTS AI
         is_mcts = hasattr(ai_player.strategy, 'stats')
         
-        # Get AI's move
-        best_move = ai_player.get_move(game)
+        # Get AI's move with visualization data if requested
+        if show_corner_search and not is_mcts:
+            best_move = ai_player.get_move_with_visualization(game)
+        else:
+            best_move = ai_player.get_move(game)
         
         if best_move is None:
             # AI has no valid moves, pass turn

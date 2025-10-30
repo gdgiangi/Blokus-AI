@@ -18,25 +18,60 @@ from board import PlayerColor
 from ai_player_enhanced import OptimizedAIStrategy, AIPlayer, EnhancedHeuristic
 
 
+# Fixed diverse strategy weights for consistent robust evaluation
+DIVERSE_STRATEGY_WEIGHTS = {
+    "aggressive": {
+        "piece_size": 0.8,
+        "blocked_opponents": 4.5,
+        "corner_control": 2.5,
+        "compactness": 0.5,
+        "mobility": 0.4,
+        "opponent_restriction": 3.5,
+        "endgame_optimization": 0.8,
+        "corner_path_potential": 2.0
+    },
+    "balanced": {
+        "piece_size": 1.5,
+        "blocked_opponents": 1.8,
+        "corner_control": 1.8,
+        "compactness": 1.2,
+        "mobility": 1.5,
+        "opponent_restriction": 1.2,
+        "endgame_optimization": 1.8,
+        "corner_path_potential": 2.5
+    },
+    "defensive": {
+        "piece_size": 2.0,
+        "blocked_opponents": 0.8,
+        "corner_control": 1.2,
+        "compactness": 2.0,
+        "mobility": 2.5,
+        "opponent_restriction": 0.6,
+        "endgame_optimization": 2.5,
+        "corner_path_potential": 4.0
+    }
+}
+
+
 # Global helper function for parallel execution (must be at module level)
-def _play_single_game(config: Tuple[Dict[str, float], List[Dict[str, float]], bool]) -> Tuple[int, int]:
+def _play_single_game(config: Tuple[Dict[str, float], bool]) -> Tuple[int, int]:
     """
-    Play a single game with given weight configurations.
+    Play a single game with contender against diverse strategies.
     Returns (blue_score, max_score) tuple.
     
     This function must be at module level for multiprocessing.Pool to pickle it.
     """
-    weights, opponent_weights, verbose = config
+    weights, verbose = config
     
     game = GameState(num_players=4)
     game.start_game()
     
-    # Create AI players with different weights
+    # Create AI players - Blue (contender) vs diverse strategies for robust evaluation
     ai_players = {
         PlayerColor.BLUE: AIPlayer(PlayerColor.BLUE, OptimizedAIStrategy(weights)),
-        PlayerColor.YELLOW: AIPlayer(PlayerColor.YELLOW, OptimizedAIStrategy(opponent_weights[0])),
-        PlayerColor.RED: AIPlayer(PlayerColor.RED, OptimizedAIStrategy(opponent_weights[1])),
-        PlayerColor.GREEN: AIPlayer(PlayerColor.GREEN, OptimizedAIStrategy(opponent_weights[2]))
+        PlayerColor.YELLOW: AIPlayer(PlayerColor.YELLOW, OptimizedAIStrategy(DIVERSE_STRATEGY_WEIGHTS["aggressive"])),
+        PlayerColor.RED: AIPlayer(PlayerColor.RED, OptimizedAIStrategy(DIVERSE_STRATEGY_WEIGHTS["balanced"])),
+        PlayerColor.GREEN: AIPlayer(PlayerColor.GREEN, OptimizedAIStrategy(DIVERSE_STRATEGY_WEIGHTS["defensive"]))
     }
     
     move_count = 0
@@ -123,31 +158,13 @@ class HyperparameterTuner:
                         num_games: int = 10,
                         verbose: bool = False) -> float:
         """
-        Evaluate a set of weights by playing multiple games (parallelized).
-        Returns average win rate when Blue uses these weights.
+        Evaluate a set of weights by playing multiple games against diverse strategies.
+        Returns average win rate when Blue uses these weights against 3 fixed diverse opponents.
         """
-        # Base weights for opponents
-        base_weights = {
-            "piece_size": 1.5,
-            "new_paths": 2.5,
-            "blocked_opponents": 2.0,
-            "corner_control": 1.5,
-            "compactness": 1.0,
-            "flexibility": 2.0,
-            "mobility": 1.0,
-            "opponent_restriction": 2.0,
-            "endgame_optimization": 1.0,
-            "territory_expansion": 1.0
-        }
-        
-        # Generate opponent weights for all games
+        # Prepare game configurations - test against diverse strategies for robustness
         game_configs = []
         for game_num in range(num_games):
-            opponent_weights = [
-                self.generate_random_weights(base_weights, 0.2) 
-                for _ in range(3)
-            ]
-            game_configs.append((weights, opponent_weights, verbose and game_num == 0))
+            game_configs.append((weights, verbose and game_num == 0))
         
         # Play games in parallel
         if self.n_jobs > 1:
@@ -349,18 +366,16 @@ def quick_tune(n_jobs: Optional[int] = None):
     Args:
         n_jobs: Number of parallel processes (None = use all CPUs)
     """
-    # Updated base weights from previous intensive tuning run (33.3% win rate)
+    # Updated streamlined base weights (removed redundant heuristics)
     base_weights = {
         "piece_size": 1.20,
-        "new_paths": 1.89,
         "blocked_opponents": 2.42,
         "corner_control": 1.36,
         "compactness": 1.00,
-        "flexibility": 1.71,
         "mobility": 0.73,
         "opponent_restriction": 0.89,
         "endgame_optimization": 1.20,
-        "territory_expansion": 1.15
+        "corner_path_potential": 2.5  # Superior replacement for new_paths + flexibility + territory_expansion
     }
     
     tuner = HyperparameterTuner(n_jobs=n_jobs)
@@ -386,18 +401,16 @@ def intensive_tune(n_jobs: Optional[int] = None):
     Args:
         n_jobs: Number of parallel processes (None = use all CPUs)
     """
-    # Updated base weights from previous intensive tuning run (33.3% win rate)
+    # Updated streamlined base weights (removed redundant heuristics)
     base_weights = {
         "piece_size": 1.20,
-        "new_paths": 1.89,
         "blocked_opponents": 2.42,
         "corner_control": 1.36,
         "compactness": 1.00,
-        "flexibility": 1.71,
         "mobility": 0.73,
         "opponent_restriction": 0.89,
         "endgame_optimization": 1.20,
-        "territory_expansion": 1.15
+        "corner_path_potential": 2.5  # Superior replacement for new_paths + flexibility + territory_expansion
     }
     
     tuner = HyperparameterTuner(n_jobs=n_jobs)
@@ -410,16 +423,17 @@ def intensive_tune(n_jobs: Optional[int] = None):
         variation=0.3
     )
     
-    # Fine-tune with grid search on top heuristics
-    print("\n\nFine-tuning top heuristics...")
-    for heuristic in ["new_paths", "opponent_restriction", "flexibility"]:
-        current_val = best_weights[heuristic]
-        best_weights[heuristic] = tuner.grid_search(
-            heuristic,
-            best_weights,
-            (current_val * 0.5, current_val * 1.5, current_val * 0.1),
-            games_per_weight=10
-        )
+    # Fine-tune with grid search on key heuristics
+    print("\n\nFine-tuning key heuristics...")
+    for heuristic in ["corner_path_potential", "blocked_opponents", "opponent_restriction"]:
+        if heuristic in best_weights:
+            current_val = best_weights[heuristic]
+            best_weights[heuristic] = tuner.grid_search(
+                heuristic,
+                best_weights,
+                (current_val * 0.5, current_val * 1.5, current_val * 0.1),
+                games_per_weight=10
+            )
     
     tuner.save_results("tuning_results_intensive.json")
     

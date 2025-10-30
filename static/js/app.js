@@ -718,11 +718,14 @@ async function performAIMove() {
         // Check if current AI is MCTS
         isMCTSActive = false;
 
-        // Get AI's evaluated moves
+        // Get AI's evaluated moves with corner search visualization
         const response = await fetch('/api/ai/move', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ show_thinking: true })
+            body: JSON.stringify({
+                show_thinking: true,
+                show_corner_search: true  // Request corner expansion visualization
+            })
         });
 
         if (!response.ok) {
@@ -763,10 +766,19 @@ async function performAIMove() {
                 hideMCTSProgress();
             }, 3500); // Give MCTS time to complete
         } else {
-            // Show traditional AI thinking process
+            // Show traditional AI thinking process (reduced sample for speed)
             if (data.all_moves && data.all_moves.length > 0) {
                 await showAIThinking(data.all_moves, data.best_move);
             }
+
+            // Show corner search visualization if available
+            if (data.best_move && data.best_move.corner_search_data) {
+                await visualizeCornerExpansion(data.best_move);
+            }
+
+            // Highlight final move briefly
+            visualizeAIMove(data.best_move, true);
+            await new Promise(resolve => setTimeout(resolve, 400));
 
             // Execute the move
             await executeAIMove();
@@ -799,8 +811,8 @@ async function showAIThinking(allMoves, bestMove) {
             }
         });
 
-        // Limit to top 15 pieces to visualize
-        const movesToShow = sampleMoves.slice(0, 15);
+        // Limit to top 8 pieces to visualize (reduced from 15 for faster animation)
+        const movesToShow = sampleMoves.slice(0, 8);
         let currentIndex = 0;
 
         // Clear any existing interval
@@ -808,7 +820,7 @@ async function showAIThinking(allMoves, bestMove) {
             clearInterval(aiThinkingInterval);
         }
 
-        // Animate through different pieces on the board
+        // Animate through different pieces on the board (faster)
         aiThinkingInterval = setInterval(() => {
             if (currentIndex < movesToShow.length) {
                 const move = movesToShow[currentIndex];
@@ -818,11 +830,11 @@ async function showAIThinking(allMoves, bestMove) {
                 clearInterval(aiThinkingInterval);
                 aiThinkingInterval = null;
 
-                // Highlight best move on board
-                visualizeAIMove(bestMove, true);
-                setTimeout(resolve, 800);
+                // Clear the preview before corner visualization
+                clearAIVisualization();
+                resolve();
             }
-        }, 100);  // Fast visualization (100ms per piece)
+        }, 80);  // Faster visualization (80ms per piece, down from 100ms)
     });
 }
 
@@ -905,6 +917,86 @@ function clearAIVisualization() {
     document.querySelectorAll('.cell.ai-preview').forEach(cell => {
         cell.classList.remove('ai-preview', 'ai-final');
     });
+    // Also clear corner search visualization
+    clearCornerSearchVisualization();
+}
+
+function clearCornerSearchVisualization() {
+    document.querySelectorAll('.cell.corner-search-cell').forEach(cell => {
+        cell.classList.remove(
+            'corner-search-cell',
+            'corner-search-radius-1',
+            'corner-search-radius-2',
+            'corner-search-radius-3',
+            'corner-search-directional',
+            'corner-marker'
+        );
+    });
+}
+
+async function visualizeCornerExpansion(moveData) {
+    const searchData = moveData.corner_search_data;
+    if (!searchData || !searchData.corners || searchData.corners.length === 0) {
+        return;
+    }
+
+    return new Promise((resolve) => {
+        const corners = searchData.corners;
+
+        // Limit to top 3 most important corners to avoid overwhelming visualization
+        const topCorners = corners
+            .sort((a, b) => b.potential - a.potential)
+            .slice(0, Math.min(3, corners.length));
+
+        // Animate all corners simultaneously with staggered start
+        topCorners.forEach((corner, cornerIndex) => {
+            const [cornerRow, cornerCol] = corner.position;
+            const startDelay = cornerIndex * 150; // Stagger each corner by 150ms
+
+            setTimeout(() => {
+                // Mark the corner itself
+                const cornerCell = document.querySelector(`[data-row="${cornerRow}"][data-col="${cornerCol}"]`);
+                if (cornerCell) {
+                    cornerCell.classList.add('corner-search-cell', 'corner-marker');
+                }
+
+                // Group cells by radius for wave animation
+                const cellsByRadius = { 1: [], 2: [], 3: [], directional: [] };
+
+                corner.cells_examined.forEach(cellData => {
+                    if (cellData.cell_type === 'expansion_search') {
+                        if (!cellsByRadius[cellData.radius]) {
+                            cellsByRadius[cellData.radius] = [];
+                        }
+                        cellsByRadius[cellData.radius].push(cellData);
+                    } else if (cellData.cell_type === 'directional_search') {
+                        cellsByRadius.directional.push(cellData);
+                    }
+                });
+
+                // Animate waves rapidly - all radii in parallel for each corner
+                [1, 2, 3].forEach(radius => {
+                    const waveDelay = radius * 80; // Fast wave expansion: 80ms per radius
+                    setTimeout(() => {
+                        const cells = cellsByRadius[radius] || [];
+                        cells.forEach(cellData => {
+                            const cell = document.querySelector(`[data-row="${cellData.row}"][data-col="${cellData.col}"]`);
+                            if (cell && !cell.classList.contains('occupied')) {
+                                cell.classList.add('corner-search-cell', `corner-search-radius-${radius}`);
+                            }
+                        });
+                    }, waveDelay);
+                });
+            }, startDelay);
+        });
+
+        // Clear visualization after brief display
+        const totalDuration = (topCorners.length * 150) + (3 * 80) + 600; // Total animation time
+        setTimeout(() => {
+            clearCornerSearchVisualization();
+            resolve();
+        }, totalDuration);
+    });
 }
 
 async function executeAIMove() {
@@ -967,12 +1059,11 @@ function updateAIControls() {
                 <span class="ai-color ${color}">${color}</span>
             </label>
             <select id="strategy-${color}" class="ai-strategy-select">
-                <option value="optimized">Optimized ⭐</option>
-                <option value="mcts">MCTS 🧠</option>
-                <option value="balanced">Balanced</option>
-                <option value="greedy">Greedy</option>
-                <option value="aggressive">Aggressive</option>
-                <option value="expansive">Expansive</option>
+                <option value="balanced">🎯 Balanced Strategist (Recommended)</option>
+                <option value="aggressive">⚔️ Aggressive Dominator</option>
+                <option value="defensive">🛡️ Defensive Survivor</option>
+                <option value="optimized">👑 Champion Optimized</option>
+                <option value="mcts">🧠 MCTS Advanced</option>
             </select>
         `;
         elements.aiControlsContainer.appendChild(controlDiv);
