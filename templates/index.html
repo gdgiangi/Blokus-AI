@@ -38,6 +38,7 @@
             <button id="new-game-btn" class="btn btn-primary">New Game</button>
             <button id="reset-game-btn" class="btn btn-secondary" disabled>Reset Game</button>
             <button id="pass-turn-btn" class="btn btn-warning" disabled>Pass Turn</button>
+            <button id="music-toggle-btn" class="btn btn-small" title="Toggle Background Music">🎵</button>
         </div>
 
         <!-- AI Controls -->
@@ -125,6 +126,7 @@
 
     </div>
 
+    <script src="{{ url_for('static', filename='js/sound-manager.js') }}"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 

@@ -847,23 +847,23 @@ class OptimizedAIStrategy(AIStrategy):
     def __init__(self, weights: Optional[Dict[str, float]] = None):
         super().__init__("Champion Optimized AI")
         
-        # 🏆 CHAMPION WEIGHTS - Adaptive Opponent Training
-        # Updated: 2025-10-30 14:27:58 (GeniusTime diverse pool session)
-        # Trained against 5 diverse champion archetypes using adaptive opponents
-        # Defensive-oriented strategy with high survival and endgame focus
+        # 🏆 CHAMPION WEIGHTS - 48% Win Rate vs Adaptive Champions!
+        # Updated: 2025-10-30 14:34:10 (GeniusTime diverse pool session)
+        # Trained against 5 diverse champion archetypes with adaptive opponents
+        # ULTRA-AGGRESSIVE strategy: Maximum opponent disruption & territorial control
         default_weights = {
-            "piece_size": 2.00,
-            "blocked_opponents": 0.80,
-            "corner_control": 1.20,
-            "compactness": 2.00,
-            "mobility": 2.50,
-            "opponent_restriction": 0.60,
-            "endgame_optimization": 2.50,
-            "corner_path_potential": 4.00,
-            "opponent_territory_pressure": 0.50,
-            "opponent_mobility_restriction": 0.80,
-            "opponent_threat_assessment": 2.00,
-            "strategic_positioning": 2.00
+            "piece_size": 0.70,
+            "blocked_opponents": 4.90,
+            "corner_control": 2.50,
+            "compactness": 0.49,
+            "mobility": 0.35,
+            "opponent_restriction": 3.81,
+            "endgame_optimization": 0.78,
+            "corner_path_potential": 1.90,
+            "opponent_territory_pressure": 2.42,
+            "opponent_mobility_restriction": 3.44,
+            "opponent_threat_assessment": 1.59,
+            "strategic_positioning": 0.86
         }
         
         weights = weights or default_weights
@@ -1043,6 +1043,41 @@ class DefensiveOptimizedStrategy(AIStrategy):
         ))
 
 
+class RandomAIStrategy(AIStrategy):
+    """Random AI that makes completely random moves without any heuristics"""
+    
+    def __init__(self):
+        super().__init__("Random AI")
+        # No heuristics - completely random play
+    
+    def select_move(self, evaluations: List[MoveEvaluation]) -> Optional[MoveEvaluation]:
+        """Select a completely random move from available options"""
+        if not evaluations:
+            return None
+        # Return a random move without any evaluation
+        return random.choice(evaluations)
+    
+    def choose_move(self, game_state: GameState, color: PlayerColor) -> Optional[MoveEvaluation]:
+        """
+        Choose a random valid move.
+        Overrides parent to skip all heuristic evaluation for pure random selection.
+        """
+        all_moves = self.get_all_possible_moves(game_state, color)
+        
+        if not all_moves:
+            return None
+        
+        # For random AI, all moves have score 0 and no heuristic breakdown
+        # Just pick one at random
+        chosen_move = random.choice(all_moves)
+        
+        # Set score to 0 and empty heuristics (purely random choice)
+        chosen_move.score = 0.0
+        chosen_move.heuristic_breakdown = {}
+        
+        return chosen_move
+
+
 class AIPlayer:
     """Main AI Player class"""
     
@@ -1072,7 +1107,8 @@ def create_ai_player(color: PlayerColor, strategy_name: str = "optimized") -> AI
         "optimized": OptimizedAIStrategy,
         "aggressive": AggressiveOptimizedStrategy,
         "balanced": BalancedOptimizedStrategy,
-        "defensive": DefensiveOptimizedStrategy
+        "defensive": DefensiveOptimizedStrategy,
+        "random": RandomAIStrategy
     }
     
     # Handle MCTS separately

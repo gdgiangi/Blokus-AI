@@ -14,7 +14,8 @@ from ai_player_enhanced import (
     OptimizedAIStrategy,
     AggressiveOptimizedStrategy,
     BalancedOptimizedStrategy,
-    DefensiveOptimizedStrategy
+    DefensiveOptimizedStrategy,
+    RandomAIStrategy
 )
 
 # Alias for backward compatibility
@@ -31,6 +32,7 @@ def create_ai_player(color: PlayerColor, strategy_name: str = "balanced") -> Enh
         "balanced": BalancedOptimizedStrategy,
         "defensive": DefensiveOptimizedStrategy,
         "optimized": OptimizedAIStrategy,  # Champion baseline
+        "random": RandomAIStrategy,  # Random play
     }
     
     # Handle MCTS separately
@@ -58,5 +60,6 @@ __all__ = [
     'OptimizedAIStrategy',
     'AggressiveOptimizedStrategy',
     'BalancedOptimizedStrategy',
-    'DefensiveOptimizedStrategy'
+    'DefensiveOptimizedStrategy',
+    'RandomAIStrategy'
 ]

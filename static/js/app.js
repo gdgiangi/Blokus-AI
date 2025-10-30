@@ -46,7 +46,8 @@ const elements = {
     mctsDepth: null,
     mctsBestVisits: null,
     mctsTime: null,
-    mctsProgressFill: null
+    mctsProgressFill: null,
+    musicToggleBtn: null
 };
 
 // Initialize on page load
@@ -54,6 +55,12 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeElements();
     attachEventListeners();
     updateAIControls(); // Initialize AI controls
+
+    // Start background music
+    if (typeof soundManager !== 'undefined') {
+        soundManager.startBackgroundMusic();
+    }
+
     console.log('Blokus game interface initialized');
 });
 
@@ -83,6 +90,7 @@ function initializeElements() {
     elements.mctsBestVisits = document.getElementById('mcts-best-visits');
     elements.mctsTime = document.getElementById('mcts-time');
     elements.mctsProgressFill = document.getElementById('mcts-progress-fill');
+    elements.musicToggleBtn = document.getElementById('music-toggle-btn');
 }
 
 function attachEventListeners() {
@@ -95,6 +103,16 @@ function attachEventListeners() {
     elements.closeModalBtn.addEventListener('click', () => {
         elements.gameOverModal.classList.remove('active');
     });
+
+    // Music toggle button
+    if (elements.musicToggleBtn) {
+        elements.musicToggleBtn.addEventListener('click', () => {
+            if (typeof soundManager !== 'undefined') {
+                const isEnabled = soundManager.toggleBackgroundMusic();
+                elements.musicToggleBtn.textContent = isEnabled ? '🎵' : '🔇';
+            }
+        });
+    }
 
     // Add event listener for num players change to update AI controls
     if (elements.numPlayersSelect) {
@@ -138,6 +156,11 @@ async function createNewGame(numPlayers) {
         updateUI();
         elements.resetGameBtn.disabled = false;
         elements.passTurnBtn.disabled = false;
+
+        // Play game start sound
+        if (typeof soundManager !== 'undefined') {
+            soundManager.playGameStart();
+        }
 
         // Check if it's AI's turn
         checkAITurn();
@@ -188,6 +211,12 @@ async function placePiece(pieceType, row, col, shape) {
 
         if (!response.ok) {
             const error = await response.json();
+
+            // Play invalid move sound
+            if (typeof soundManager !== 'undefined') {
+                soundManager.playInvalidMove();
+            }
+
             throw new Error(error.error || 'Invalid move');
         }
 
@@ -196,6 +225,11 @@ async function placePiece(pieceType, row, col, shape) {
         selectedPiece = null;
         currentPieceShape = null;
         updateUI();
+
+        // Play place piece sound
+        if (typeof soundManager !== 'undefined') {
+            soundManager.playPlacePiece();
+        }
 
         // Check if game is over
         if (gameState.is_game_over) {
@@ -263,6 +297,11 @@ function handleRotate() {
     if (currentPieceShape) {
         currentPieceShape = rotatePiece(currentPieceShape);
         updateSelectedPieceDisplay();
+
+        // Play rotate sound
+        if (typeof soundManager !== 'undefined') {
+            soundManager.playPieceRotate();
+        }
     }
 }
 
@@ -270,6 +309,11 @@ function handleFlipHorizontal() {
     if (currentPieceShape) {
         currentPieceShape = flipPieceHorizontal(currentPieceShape);
         updateSelectedPieceDisplay();
+
+        // Play rotate sound
+        if (typeof soundManager !== 'undefined') {
+            soundManager.playPieceRotate();
+        }
     }
 }
 
@@ -277,6 +321,11 @@ function handleFlipVertical() {
     if (currentPieceShape) {
         currentPieceShape = flipPieceVertical(currentPieceShape);
         updateSelectedPieceDisplay();
+
+        // Play rotate sound
+        if (typeof soundManager !== 'undefined') {
+            soundManager.playPieceRotate();
+        }
     }
 }
 
@@ -656,6 +705,11 @@ function showGameOver() {
     });
 
     elements.gameOverModal.classList.add('active');
+
+    // Play game over sound
+    if (typeof soundManager !== 'undefined') {
+        soundManager.playGameOver();
+    }
 }
 
 // Helper function to get piece shape (from backend data)
@@ -776,8 +830,9 @@ async function performAIMove() {
                 await visualizeCornerExpansion(data.best_move);
             }
 
-            // Highlight final move briefly
-            visualizeAIMove(data.best_move, true);
+            // Highlight final move briefly with player color
+            const playerColor = gameState ? gameState.current_player : null;
+            visualizeAIMove(data.best_move, true, playerColor);
             await new Promise(resolve => setTimeout(resolve, 400));
 
             // Execute the move
@@ -794,6 +849,9 @@ async function performAIMove() {
 
 async function showAIThinking(allMoves, bestMove) {
     return new Promise((resolve) => {
+        // Get current player color for color-coded animations
+        const playerColor = gameState ? gameState.current_player : null;
+
         // Group moves by piece type to show variety
         const movesByPiece = {};
         allMoves.forEach(move => {
@@ -824,7 +882,7 @@ async function showAIThinking(allMoves, bestMove) {
         aiThinkingInterval = setInterval(() => {
             if (currentIndex < movesToShow.length) {
                 const move = movesToShow[currentIndex];
-                visualizeAIMove(move);
+                visualizeAIMove(move, false, playerColor);
                 currentIndex++;
             } else {
                 clearInterval(aiThinkingInterval);
@@ -896,7 +954,7 @@ function addAIDecisionToLog(bestMove, totalMoves, playerColor) {
     }
 }
 
-function visualizeAIMove(move, isFinal = false) {
+function visualizeAIMove(move, isFinal = false, playerColor = null) {
     // Clear previous visualization
     clearAIVisualization();
 
@@ -906,8 +964,15 @@ function visualizeAIMove(move, isFinal = false) {
         const cell = document.querySelector(`[data-row="${r}"][data-col="${c}"]`);
         if (cell) {
             cell.classList.add('ai-preview');
+            // Add player-specific color class
+            if (playerColor) {
+                cell.classList.add(`ai-preview-${playerColor}`);
+            }
             if (isFinal) {
                 cell.classList.add('ai-final');
+                if (playerColor) {
+                    cell.classList.add(`ai-final-${playerColor}`);
+                }
             }
         }
     });
@@ -916,6 +981,9 @@ function visualizeAIMove(move, isFinal = false) {
 function clearAIVisualization() {
     document.querySelectorAll('.cell.ai-preview').forEach(cell => {
         cell.classList.remove('ai-preview', 'ai-final');
+        // Remove all player-specific color classes
+        cell.classList.remove('ai-preview-blue', 'ai-preview-yellow', 'ai-preview-red', 'ai-preview-green');
+        cell.classList.remove('ai-final-blue', 'ai-final-yellow', 'ai-final-red', 'ai-final-green');
     });
     // Also clear corner search visualization
     clearCornerSearchVisualization();
@@ -929,7 +997,16 @@ function clearCornerSearchVisualization() {
             'corner-search-radius-2',
             'corner-search-radius-3',
             'corner-search-directional',
-            'corner-marker'
+            'corner-marker',
+            // Remove player-specific color classes
+            'corner-marker-blue',
+            'corner-marker-yellow',
+            'corner-marker-red',
+            'corner-marker-green',
+            'corner-search-blue',
+            'corner-search-yellow',
+            'corner-search-red',
+            'corner-search-green'
         );
     });
 }
@@ -942,6 +1019,7 @@ async function visualizeCornerExpansion(moveData) {
 
     return new Promise((resolve) => {
         const corners = searchData.corners;
+        const playerColor = gameState ? gameState.current_player : null;
 
         // Limit to top 3 most important corners to avoid overwhelming visualization
         const topCorners = corners
@@ -958,6 +1036,9 @@ async function visualizeCornerExpansion(moveData) {
                 const cornerCell = document.querySelector(`[data-row="${cornerRow}"][data-col="${cornerCol}"]`);
                 if (cornerCell) {
                     cornerCell.classList.add('corner-search-cell', 'corner-marker');
+                    if (playerColor) {
+                        cornerCell.classList.add(`corner-marker-${playerColor}`);
+                    }
                 }
 
                 // Group cells by radius for wave animation
@@ -983,6 +1064,9 @@ async function visualizeCornerExpansion(moveData) {
                             const cell = document.querySelector(`[data-row="${cellData.row}"][data-col="${cellData.col}"]`);
                             if (cell && !cell.classList.contains('occupied')) {
                                 cell.classList.add('corner-search-cell', `corner-search-radius-${radius}`);
+                                if (playerColor) {
+                                    cell.classList.add(`corner-search-${playerColor}`);
+                                }
                             }
                         });
                     }, waveDelay);
@@ -1016,6 +1100,11 @@ async function executeAIMove() {
             gameState = data.game_state;
         } else {
             gameState = data.game_state;
+
+            // Play place piece sound for AI moves
+            if (typeof soundManager !== 'undefined') {
+                soundManager.playPlacePiece();
+            }
         }
 
         // Clear AI visualization
@@ -1054,16 +1143,16 @@ function updateAIControls() {
         const controlDiv = document.createElement('div');
         controlDiv.className = 'ai-control';
         controlDiv.innerHTML = `
-            <label>
+            <label class="ai-toggle">
                 <input type="checkbox" id="ai-${color}">
-                <span class="ai-color ${color}">${color}</span>
+                <span class="ai-color-badge ${color}">${color.toUpperCase()}</span>
             </label>
             <select id="strategy-${color}" class="ai-strategy-select">
-                <option value="balanced">🎯 Balanced Strategist (Recommended)</option>
-                <option value="aggressive">⚔️ Aggressive Dominator</option>
-                <option value="defensive">🛡️ Defensive Survivor</option>
-                <option value="optimized">👑 Champion Optimized</option>
-                <option value="mcts">🧠 MCTS Advanced</option>
+                <option value="random">★☆☆☆☆ Random</option>
+                <option value="defensive">★★☆☆☆ Defensive</option>
+                <option value="balanced" selected>★★★☆☆ Balanced</option>
+                <option value="aggressive">★★★★☆ Aggressive</option>
+                <option value="optimized">★★★★★ Champion</option>
             </select>
         `;
         elements.aiControlsContainer.appendChild(controlDiv);
