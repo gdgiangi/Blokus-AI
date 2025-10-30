@@ -23,7 +23,6 @@ Blokus-AI/
 ├── app.py                            # Flask web application with AI support
 ├── ai_player.py                      # Modular AI player (5 heuristics)
 ├── ai_player_enhanced.py             # Enhanced AI (10 heuristics)
-├── hyperparameter_tuning.py          # Parallelized AI optimization
 ├── example.py                        # Usage demonstration
 ├── ai_example.py                     # AI usage demonstration
 ├── templates/                        # HTML templates
@@ -31,9 +30,17 @@ Blokus-AI/
 ├── static/                           # Static assets
 │   ├── css/style.css                 # Styling with AI visualization
 │   └── js/app.js                     # Frontend logic with AI integration
+├── tuning/                           # AI hyperparameter optimization
+│   ├── hyperparameter_tuning.py      # Basic parallelized tuning
+│   ├── advanced_hyperparameter_tuning.py # Advanced tuning with champion pool
+│   ├── launch_tuning.py               # Easy tuning launcher
+│   ├── manage_ai_weights.py           # Weight management utilities
+│   └── test_advanced_tuning.py        # Testing utilities
 ├── docs/                             # Documentation
 │   ├── AI_GUIDE.md                   # Advanced AI guide
-│   ├── HYPERPARAMETER_TUNING_GUIDE.md # Tuning guide (parallelized)
+│   ├── HYPERPARAMETER_TUNING_GUIDE.md # Basic tuning guide
+│   ├── ADVANCED_HYPERPARAMETER_TUNING_GUIDE.md # Advanced tuning guide
+│   └── ADVANCED_TUNING_README.md     # Advanced tuning overview
 └── README.md                         # This file
 ```
 
@@ -315,10 +322,19 @@ Optimize AI performance with automated hyperparameter tuning:
 
 **Quick Start:**
 ```python
-from hyperparameter_tuning import quick_tune
+from tuning.hyperparameter_tuning import quick_tune
 
 # Uses all CPU cores automatically
 best_weights = quick_tune()
+```
+
+**Advanced Tuning with Champion Pool:**
+```python
+# Run long tuning session with champion pool system
+python tuning/advanced_hyperparameter_tuning.py
+
+# Or use the launcher for easy setup
+python tuning/launch_tuning.py
 ```
 
 ### 🎮 Web Interface
