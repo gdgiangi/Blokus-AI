@@ -11,12 +11,18 @@ from pieces import PieceType, Piece, PIECE_SHAPES
 from ai_player import create_ai_player, AIPlayer
 import json
 
+def global_progress_callback(stats, player_color):
+    """Global callback to store MCTS progress"""
+    global mcts_progress
+    mcts_progress[player_color.value] = stats.to_dict()
+
 app = Flask(__name__)
 CORS(app)
 
 # Global game state (in production, use session management)
 game = None
 ai_players = {}  # Dictionary to store AI players by color
+mcts_progress = {}  # Global MCTS progress storage
 
 
 @app.route('/')
@@ -53,7 +59,21 @@ def new_game():
             try:
                 color = PlayerColor(color_str)
                 if color in game.players:
-                    ai_players[color] = create_ai_player(color, strategy)
+                    if strategy.lower() == 'mcts':
+                        # Create MCTS AI with progress callback
+                        def progress_callback(stats):
+                            global mcts_progress
+                            mcts_progress[color_str] = stats.to_dict()
+                        
+                        # Import MCTS here to avoid circular imports
+                        try:
+                            from mcts_ai import create_mcts_ai_player
+                            ai_players[color] = create_mcts_ai_player(color, time_limit=3.0, progress_callback=progress_callback)
+                        except ImportError:
+                            # Fallback to regular AI if MCTS not available
+                            ai_players[color] = create_ai_player(color, 'optimized')
+                    else:
+                        ai_players[color] = create_ai_player(color, strategy)
             except ValueError:
                 pass  # Invalid color, skip
         
@@ -98,6 +118,13 @@ def get_game_state():
     if game is None:
         return jsonify({'error': 'No active game'}), 400
     
+    # Check if current player has no valid moves and auto-pass
+    if game.phase.value == 'in_progress':
+        current_color = game.get_current_color()
+        if not game.has_valid_moves(current_color):
+            # Current player has no valid moves, automatically pass
+            game.pass_turn()
+    
     return jsonify(game.to_dict())
 
 
@@ -137,6 +164,12 @@ def place_piece():
         success = game.place_piece(piece_type, piece, row, col)
         
         if success:
+            # After placing a piece, check if next player has valid moves
+            # If not, auto-pass them until we find a player with moves
+            while (game.phase.value == 'in_progress' and 
+                   not game.has_valid_moves(game.get_current_color())):
+                game.pass_turn()
+            
             return jsonify({
                 'success': True,
                 'game_state': game.to_dict()
@@ -162,6 +195,12 @@ def pass_turn():
         success = game.pass_turn()
         
         if success:
+            # After manual pass, check if next player has valid moves
+            # If not, auto-pass them until we find a player with moves
+            while (game.phase.value == 'in_progress' and 
+                   not game.has_valid_moves(game.get_current_color())):
+                game.pass_turn()
+            
             return jsonify({
                 'success': True,
                 'game_state': game.to_dict()
@@ -249,6 +288,9 @@ def ai_move():
         
         ai_player = ai_players[current_color]
         
+        # Check if this is an MCTS AI
+        is_mcts = hasattr(ai_player.strategy, 'stats')
+        
         # Get AI's move
         best_move = ai_player.get_move(game)
         
@@ -261,20 +303,26 @@ def ai_move():
                 'game_state': game.to_dict()
             })
         
-        # If requested, get all evaluated moves for visualization
-        all_moves = []
-        if show_thinking:
-            all_moves = ai_player.get_all_evaluated_moves(game)
-            # Limit to top 1000 for performance while showing comprehensive evaluation
-            all_moves = [move.to_dict() for move in all_moves[:1000]]
-        
-        return jsonify({
+        # Prepare response
+        response_data = {
             'success': True,
             'action': 'move',
             'best_move': best_move.to_dict(),
-            'all_moves': all_moves,
-            'thinking_enabled': show_thinking
-        })
+            'thinking_enabled': show_thinking,
+            'is_mcts': is_mcts
+        }
+        
+        # If MCTS AI, include MCTS statistics
+        if is_mcts and hasattr(ai_player.strategy, 'stats'):
+            response_data['mcts_stats'] = ai_player.strategy.stats.to_dict()
+        
+        # If requested, get all evaluated moves for visualization (non-MCTS)
+        if show_thinking and not is_mcts:
+            all_moves = ai_player.get_all_evaluated_moves(game)
+            # Limit to top 1000 for performance while showing comprehensive evaluation
+            response_data['all_moves'] = [move.to_dict() for move in all_moves[:1000]]
+        
+        return jsonify(response_data)
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -321,6 +369,12 @@ def ai_execute():
         )
         
         if success:
+            # After AI makes a move, check if next player has valid moves
+            # If not, auto-pass them until we find a player with moves
+            while (game.phase.value == 'in_progress' and 
+                   not game.has_valid_moves(game.get_current_color())):
+                game.pass_turn()
+            
             return jsonify({
                 'success': True,
                 'action': 'move',
@@ -356,6 +410,83 @@ def check_ai():
         'is_ai_turn': is_ai,
         'ai_info': ai_info,
         'all_ai_players': {color.value: ai.strategy.name for color, ai in ai_players.items()}
+    })
+
+
+@app.route('/api/ai/progress', methods=['GET'])
+def get_ai_progress():
+    """Get current MCTS AI progress"""
+    global game, ai_players
+    
+    if game is None:
+        return jsonify({'error': 'No active game'}), 400
+    
+    current_color = game.get_current_color()
+    
+    if current_color not in ai_players:
+        return jsonify({'error': 'Current player is not AI'}), 400
+    
+    ai_player = ai_players[current_color]
+    
+    # Debug logging
+    print(f"Progress check for {current_color.value}, strategy: {ai_player.strategy.name}")
+    print(f"Has get_current_progress: {hasattr(ai_player.strategy, 'get_current_progress')}")
+    
+    # Check if this is an MCTS AI and get progress
+    if hasattr(ai_player.strategy, 'get_current_progress'):
+        progress = ai_player.strategy.get_current_progress()
+        print(f"Progress data: {progress}")
+        if progress:
+            return jsonify({
+                'success': True,
+                'progress': progress,
+                'is_mcts': True
+            })
+    
+    # Also check global progress storage
+    global mcts_progress
+    if current_color.value in mcts_progress:
+        return jsonify({
+            'success': True,
+            'progress': mcts_progress[current_color.value],
+            'is_mcts': True
+        })
+    
+    return jsonify({
+        'success': False,
+        'is_mcts': False
+    })
+
+
+# Global variable to store MCTS progress
+mcts_progress = {}
+
+@app.route('/api/ai/mcts-progress', methods=['GET'])
+def get_mcts_progress():
+    """Get current MCTS progress for the active AI player"""
+    global game, ai_players, mcts_progress
+    
+    if game is None:
+        return jsonify({'error': 'No active game'}), 400
+    
+    current_color = game.get_current_color()
+    
+    if current_color not in ai_players:
+        return jsonify({'error': 'Current player is not AI'}), 400
+    
+    # Return the latest progress data
+    progress_data = mcts_progress.get(current_color.value, {
+        'nodes_explored': 0,
+        'simulations_run': 0,
+        'current_depth': 0,
+        'best_move_visits': 0,
+        'time_elapsed': 0.0
+    })
+    
+    return jsonify({
+        'success': True,
+        'progress': progress_data,
+        'player_color': current_color.value
     })
 
 

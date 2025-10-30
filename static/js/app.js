@@ -9,6 +9,8 @@ let draggedPieceElement = null;
 let aiPlayers = {};  // Track which players are AI
 let aiThinking = false;  // Track if AI is currently "thinking"
 let aiThinkingInterval = null;  // Interval for AI thinking animation
+let mctsProgressInterval = null;  // Interval for MCTS progress updates
+let isMCTSActive = false;  // Track if current AI is MCTS
 
 // Color mapping
 const COLORS = {
@@ -37,7 +39,14 @@ const elements = {
     finalRankings: null,
     aiControlsContainer: null,
     aiThinkingPanel: null,
-    aiDecisionLog: null
+    aiDecisionLog: null,
+    mctsProgressPanel: null,
+    mctsSimulations: null,
+    mctsNodes: null,
+    mctsDepth: null,
+    mctsBestVisits: null,
+    mctsTime: null,
+    mctsProgressFill: null
 };
 
 // Initialize on page load
@@ -67,6 +76,13 @@ function initializeElements() {
     elements.aiControlsContainer = document.getElementById('ai-controls');
     elements.aiThinkingPanel = document.getElementById('ai-thinking-panel');
     elements.aiDecisionLog = document.getElementById('ai-decision-log');
+    elements.mctsProgressPanel = document.getElementById('mcts-progress-panel');
+    elements.mctsSimulations = document.getElementById('mcts-simulations');
+    elements.mctsNodes = document.getElementById('mcts-nodes');
+    elements.mctsDepth = document.getElementById('mcts-depth');
+    elements.mctsBestVisits = document.getElementById('mcts-best-visits');
+    elements.mctsTime = document.getElementById('mcts-time');
+    elements.mctsProgressFill = document.getElementById('mcts-progress-fill');
 }
 
 function attachEventListeners() {
@@ -507,8 +523,22 @@ function updatePieceControls() {
 
 // Drag and Drop Handlers
 function handleDragStart(e, pieceType, shape) {
-    selectedPiece = pieceType;
-    currentPieceShape = JSON.parse(JSON.stringify(shape));
+    // If this piece is already selected, use the current transformed shape
+    // Otherwise, select it with the original shape
+    if (selectedPiece === pieceType && currentPieceShape) {
+        // Keep the current transformed shape
+    } else {
+        selectedPiece = pieceType;
+        currentPieceShape = JSON.parse(JSON.stringify(shape));
+
+        // Update the visual display to match the selected piece
+        document.querySelectorAll('.piece-item').forEach(item => {
+            item.classList.remove('selected');
+        });
+        e.target.classList.add('selected');
+        updateSelectedPieceDisplay();
+    }
+
     draggedPieceElement = e.target;
     e.target.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
@@ -685,6 +715,9 @@ async function performAIMove() {
     aiThinking = true;
 
     try {
+        // Check if current AI is MCTS
+        isMCTSActive = false;
+
         // Get AI's evaluated moves
         const response = await fetch('/api/ai/move', {
             method: 'POST',
@@ -698,10 +731,14 @@ async function performAIMove() {
 
         const data = await response.json();
 
+        // Check if this is MCTS AI
+        isMCTSActive = data.is_mcts;
+
         if (data.action === 'pass') {
             // AI has no valid moves
             gameState = data.game_state;
             updateUI();
+            hideMCTSProgress();
 
             if (gameState.is_game_over) {
                 showGameOver();
@@ -714,27 +751,37 @@ async function performAIMove() {
             return;
         }
 
-        // Show AI thinking process
-        if (data.all_moves && data.all_moves.length > 0) {
-            await showAIThinking(data.all_moves, data.best_move);
-        }
+        if (isMCTSActive) {
+            // Show MCTS progress
+            showMCTSProgress();
+            startMCTSProgressTracking();
 
-        // Execute the move
-        await executeAIMove();
+            // Wait a bit for MCTS to finish
+            setTimeout(async () => {
+                await executeAIMove();
+                stopMCTSProgressTracking();
+                hideMCTSProgress();
+            }, 3500); // Give MCTS time to complete
+        } else {
+            // Show traditional AI thinking process
+            if (data.all_moves && data.all_moves.length > 0) {
+                await showAIThinking(data.all_moves, data.best_move);
+            }
+
+            // Execute the move
+            await executeAIMove();
+        }
 
     } catch (error) {
         console.error('Error performing AI move:', error);
         aiThinking = false;
+        stopMCTSProgressTracking();
+        hideMCTSProgress();
     }
 }
 
 async function showAIThinking(allMoves, bestMove) {
     return new Promise((resolve) => {
-        if (!elements.aiDecisionLog) {
-            resolve();
-            return;
-        }
-
         // Group moves by piece type to show variety
         const movesByPiece = {};
         allMoves.forEach(move => {
@@ -743,14 +790,6 @@ async function showAIThinking(allMoves, bestMove) {
             }
             movesByPiece[move.piece_type].push(move);
         });
-
-        const piecesConsidered = Object.keys(movesByPiece).length;
-
-        // Add temporary status message at top (will be removed)
-        const tempStatus = document.createElement('div');
-        tempStatus.className = 'ai-temp-status';
-        tempStatus.innerHTML = `🤔 Considering ${piecesConsidered} different pieces... (${allMoves.length} positions)`;
-        elements.aiDecisionLog.insertBefore(tempStatus, elements.aiDecisionLog.firstChild);
 
         // Visualize different pieces on the board (sample a few to show variety)
         const sampleMoves = [];
@@ -778,13 +817,6 @@ async function showAIThinking(allMoves, bestMove) {
             } else {
                 clearInterval(aiThinkingInterval);
                 aiThinkingInterval = null;
-
-                // Remove temporary status
-                tempStatus.remove();
-
-                // Add decision to persistent log
-                const currentColor = gameState.current_player;
-                addAIDecisionToLog(bestMove, allMoves.length, currentColor);
 
                 // Highlight best move on board
                 visualizeAIMove(bestMove, true);
@@ -936,6 +968,7 @@ function updateAIControls() {
             </label>
             <select id="strategy-${color}" class="ai-strategy-select">
                 <option value="optimized">Optimized ⭐</option>
+                <option value="mcts">MCTS 🧠</option>
                 <option value="balanced">Balanced</option>
                 <option value="greedy">Greedy</option>
                 <option value="aggressive">Aggressive</option>
@@ -943,6 +976,43 @@ function updateAIControls() {
             </select>
         `;
         elements.aiControlsContainer.appendChild(controlDiv);
+    }
+}
+
+// MCTS Progress Functions
+function showMCTSProgress() {
+    // AI thinking components are hidden - do nothing
+    return;
+}
+
+function hideMCTSProgress() {
+    // AI thinking components are hidden - do nothing
+    return;
+}
+
+function resetMCTSProgress() {
+    if (elements.mctsSimulations) elements.mctsSimulations.textContent = '0';
+    if (elements.mctsNodes) elements.mctsNodes.textContent = '0';
+    if (elements.mctsDepth) elements.mctsDepth.textContent = '0';
+    if (elements.mctsBestVisits) elements.mctsBestVisits.textContent = '0';
+    if (elements.mctsTime) elements.mctsTime.textContent = '0.0s';
+    if (elements.mctsProgressFill) elements.mctsProgressFill.style.width = '0%';
+}
+
+function updateMCTSProgress(progress) {
+    // AI thinking components are hidden - do nothing
+    return;
+}
+
+function startMCTSProgressTracking() {
+    // AI thinking components are hidden - do nothing
+    return;
+}
+
+function stopMCTSProgressTracking() {
+    if (mctsProgressInterval) {
+        clearInterval(mctsProgressInterval);
+        mctsProgressInterval = null;
     }
 }
 

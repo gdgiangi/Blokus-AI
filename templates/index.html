@@ -55,8 +55,38 @@
 
             <!-- Sidebar with Pieces -->
             <div class="sidebar">
+                <!-- MCTS Progress Panel -->
+                <div id="mcts-progress-panel" class="mcts-progress-panel" style="display: none;">
+                    <h2>🧠 MCTS Progress</h2>
+                    <div class="mcts-stats">
+                        <div class="stat-row">
+                            <span>Simulations:</span>
+                            <span id="mcts-simulations">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>Nodes Explored:</span>
+                            <span id="mcts-nodes">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>Max Depth:</span>
+                            <span id="mcts-depth">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>Best Move Visits:</span>
+                            <span id="mcts-best-visits">0</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div id="mcts-progress-fill" class="progress-fill"></div>
+                        </div>
+                        <div class="stat-row">
+                            <span>Time:</span>
+                            <span id="mcts-time">0.0s</span>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- AI Decision Log -->
-                <div id="ai-thinking-panel" class="ai-thinking-panel">
+                <div id="ai-thinking-panel" class="ai-thinking-panel" style="display: none;">
                     <h2>🤖 AI Decisions</h2>
                     <div id="ai-decision-log" class="ai-decision-log"></div>
                 </div>
