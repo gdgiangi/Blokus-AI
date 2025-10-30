@@ -349,17 +349,18 @@ def quick_tune(n_jobs: Optional[int] = None):
     Args:
         n_jobs: Number of parallel processes (None = use all CPUs)
     """
+    # Updated base weights from previous intensive tuning run (33.3% win rate)
     base_weights = {
-        "piece_size": 1.5,
-        "new_paths": 2.5,
-        "blocked_opponents": 2.0,
-        "corner_control": 1.5,
-        "compactness": 1.0,
-        "flexibility": 2.0,
-        "mobility": 1.0,
-        "opponent_restriction": 2.0,
-        "endgame_optimization": 1.0,
-        "territory_expansion": 1.0
+        "piece_size": 1.20,
+        "new_paths": 1.89,
+        "blocked_opponents": 2.42,
+        "corner_control": 1.36,
+        "compactness": 1.00,
+        "flexibility": 1.71,
+        "mobility": 0.73,
+        "opponent_restriction": 0.89,
+        "endgame_optimization": 1.20,
+        "territory_expansion": 1.15
     }
     
     tuner = HyperparameterTuner(n_jobs=n_jobs)
@@ -385,17 +386,18 @@ def intensive_tune(n_jobs: Optional[int] = None):
     Args:
         n_jobs: Number of parallel processes (None = use all CPUs)
     """
+    # Updated base weights from previous intensive tuning run (33.3% win rate)
     base_weights = {
-        "piece_size": 1.5,
-        "new_paths": 2.5,
-        "blocked_opponents": 2.0,
-        "corner_control": 1.5,
-        "compactness": 1.0,
-        "flexibility": 2.0,
-        "mobility": 1.0,
-        "opponent_restriction": 2.0,
-        "endgame_optimization": 1.0,
-        "territory_expansion": 1.0
+        "piece_size": 1.20,
+        "new_paths": 1.89,
+        "blocked_opponents": 2.42,
+        "corner_control": 1.36,
+        "compactness": 1.00,
+        "flexibility": 1.71,
+        "mobility": 0.73,
+        "opponent_restriction": 0.89,
+        "endgame_optimization": 1.20,
+        "territory_expansion": 1.15
     }
     
     tuner = HyperparameterTuner(n_jobs=n_jobs)

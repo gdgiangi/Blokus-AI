@@ -1,0 +1,467 @@
+{
+  "best_weights": {
+    "piece_size": 1.2009031395321637,
+    "new_paths": 1.8895449667884565,
+    "blocked_opponents": 2.41826519198835,
+    "corner_control": 1.3569151950981349,
+    "compactness": 0.9967653638306112,
+    "flexibility": 1.713873551407392,
+    "mobility": 0.7301132706621534,
+    "opponent_restriction": 0.8902112339498292,
+    "endgame_optimization": 1.196200295937166,
+    "territory_expansion": 1.153690337147856
+  },
+  "best_win_rate": 0.3333333333333333,
+  "all_results": [
+    {
+      "weights": {
+        "piece_size": 1.0981125818441584,
+        "new_paths": 2.214697793231912,
+        "blocked_opponents": 2.313053987922963,
+        "corner_control": 1.7093325174169733,
+        "compactness": 0.927989317689583,
+        "flexibility": 2.555521094412214,
+        "mobility": 1.0882992636218065,
+        "opponent_restriction": 2.5617399770748803,
+        "endgame_optimization": 0.795788238919521,
+        "territory_expansion": 0.9022768384203512
+      },
+      "win_rate": 0.13333333333333333
+    },
+    {
+      "weights": {
+        "piece_size": 1.8445277560193118,
+        "new_paths": 1.7514603014215298,
+        "blocked_opponents": 1.6924469952734624,
+        "corner_control": 1.7614855033365044,
+        "compactness": 1.0621164754891748,
+        "flexibility": 1.6741999620005716,
+        "mobility": 1.0003812924569588,
+        "opponent_restriction": 2.365607827413563,
+        "endgame_optimization": 1.2901794885059752,
+        "territory_expansion": 1.1879604943725537
+      },
+      "win_rate": 0.26666666666666666
+    },
+    {
+      "weights": {
+        "piece_size": 1.6434646410955052,
+        "new_paths": 2.007549543562993,
+        "blocked_opponents": 2.595814266639274,
+        "corner_control": 1.1885585207118805,
+        "compactness": 1.14777517260733,
+        "flexibility": 1.6277074129556317,
+        "mobility": 0.955777838727558,
+        "opponent_restriction": 1.6422297264557917,
+        "endgame_optimization": 1.2115566195753282,
+        "territory_expansion": 0.8921270479800294
+      },
+      "win_rate": 0.2
+    },
+    {
+      "weights": {
+        "piece_size": 1.7617574446430075,
+        "new_paths": 2.84401934102803,
+        "blocked_opponents": 1.8151223858015249,
+        "corner_control": 1.601139643258226,
+        "compactness": 0.9242498758466465,
+        "flexibility": 2.105433390451745,
+        "mobility": 1.239638930537658,
+        "opponent_restriction": 2.3181572400684174,
+        "endgame_optimization": 1.1042737188648168,
+        "territory_expansion": 0.9345544772063161
+      },
+      "win_rate": 0.06666666666666667
+    },
+    {
+      "weights": {
+        "piece_size": 1.1732691094310288,
+        "new_paths": 2.556430334558093,
+        "blocked_opponents": 2.3298853939047754,
+        "corner_control": 1.6079414731621875,
+        "compactness": 0.767201422990011,
+        "flexibility": 1.9562542291442915,
+        "mobility": 1.1651346938245095,
+        "opponent_restriction": 1.8014465607252923,
+        "endgame_optimization": 0.8535438065448222,
+        "territory_expansion": 0.9700037833578992
+      },
+      "win_rate": 0.13333333333333333
+    },
+    {
+      "weights": {
+        "piece_size": 1.3558818496263796,
+        "new_paths": 2.617583143422144,
+        "blocked_opponents": 1.8004573677296998,
+        "corner_control": 1.9334312916048548,
+        "compactness": 1.1513668595493691,
+        "flexibility": 2.066247269366297,
+        "mobility": 1.0289667061316903,
+        "opponent_restriction": 1.6661138581235237,
+        "endgame_optimization": 1.1666743030257452,
+        "territory_expansion": 1.2063551083779405
+      },
+      "win_rate": 0.26666666666666666
+    },
+    {
+      "weights": {
+        "piece_size": 1.7298838922740083,
+        "new_paths": 1.8257413896713968,
+        "blocked_opponents": 2.052291055619856,
+        "corner_control": 1.3780912854922214,
+        "compactness": 0.9325433160772183,
+        "flexibility": 2.236767112337983,
+        "mobility": 1.1858406722232555,
+        "opponent_restriction": 2.0276389317925387,
+        "endgame_optimization": 1.196251449554105,
+        "territory_expansion": 0.9922466725604178
+      },
+      "win_rate": 0.06666666666666667
+    },
+    {
+      "weights": {
+        "piece_size": 1.6507202815837574,
+        "new_paths": 3.2184810847903305,
+        "blocked_opponents": 1.5234428530836261,
+        "corner_control": 1.429202856709667,
+        "compactness": 0.8354434593707016,
+        "flexibility": 1.5056249548802252,
+        "mobility": 1.0440646676448408,
+        "opponent_restriction": 1.7899453064220203,
+        "endgame_optimization": 0.7244960537243006,
+        "territory_expansion": 0.7801184231175358
+      },
+      "win_rate": 0.2
+    },
+    {
+      "weights": {
+        "piece_size": 1.222635156668261,
+        "new_paths": 2.958023702477901,
+        "blocked_opponents": 2.1657114427484445,
+        "corner_control": 1.5723730188657992,
+        "compactness": 0.974984169376357,
+        "flexibility": 2.1385739185206885,
+        "mobility": 0.7384872634760264,
+        "opponent_restriction": 2.3178444566693237,
+        "endgame_optimization": 0.7070761872080784,
+        "territory_expansion": 1.2512980750467784
+      },
+      "win_rate": 0.26666666666666666
+    },
+    {
+      "weights": {
+        "piece_size": 1.2683013684526612,
+        "new_paths": 1.8799199000895361,
+        "blocked_opponents": 1.5701323641763734,
+        "corner_control": 1.9243858040354593,
+        "compactness": 0.8807918809647715,
+        "flexibility": 2.060187955639179,
+        "mobility": 0.7250899321654118,
+        "opponent_restriction": 1.5466120437598136,
+        "endgame_optimization": 1.244329700459968,
+        "territory_expansion": 1.185797750477442
+      },
+      "win_rate": 0.06666666666666667
+    },
+    {
+      "weights": {
+        "piece_size": 1.1627048081179274,
+        "new_paths": 2.2373469356076487,
+        "blocked_opponents": 1.5157052695509805,
+        "corner_control": 1.7867133230581438,
+        "compactness": 0.7223501759154896,
+        "flexibility": 1.6788065639002467,
+        "mobility": 1.1567431979982612,
+        "opponent_restriction": 2.5749748894744795,
+        "endgame_optimization": 0.9903886591408138,
+        "territory_expansion": 0.9638558875893417
+      },
+      "win_rate": 0.13333333333333333
+    },
+    {
+      "weights": {
+        "piece_size": 1.2010017841372598,
+        "new_paths": 1.8544059957713355,
+        "blocked_opponents": 2.480359220821941,
+        "corner_control": 1.2795722961765639,
+        "compactness": 1.140057683636454,
+        "flexibility": 2.4296033866833944,
+        "mobility": 0.7656141110329782,
+        "opponent_restriction": 2.288109930706892,
+        "endgame_optimization": 1.0044110416499359,
+        "territory_expansion": 0.8564233063397051
+      },
+      "win_rate": 0.06666666666666667
+    },
+    {
+      "weights": {
+        "piece_size": 1.6807875260447673,
+        "new_paths": 1.856288297387195,
+        "blocked_opponents": 1.6802636835107554,
+        "corner_control": 1.4239319900135958,
+        "compactness": 0.8468424038290385,
+        "flexibility": 1.4882849922451897,
+        "mobility": 0.8976727370853341,
+        "opponent_restriction": 2.448714602382843,
+        "endgame_optimization": 0.9309220401989031,
+        "territory_expansion": 1.0428301428755717
+      },
+      "win_rate": 0.06666666666666667
+    },
+    {
+      "weights": {
+        "piece_size": 1.0507594619861,
+        "new_paths": 2.637320015692305,
+        "blocked_opponents": 2.051154431691366,
+        "corner_control": 1.6180343797998107,
+        "compactness": 0.998177770431174,
+        "flexibility": 2.0995229674750515,
+        "mobility": 0.993578794744006,
+        "opponent_restriction": 1.9002382477435957,
+        "endgame_optimization": 1.0070022357441497,
+        "territory_expansion": 1.1372526453013212
+      },
+      "win_rate": 0.06666666666666667
+    },
+    {
+      "weights": {
+        "piece_size": 1.1158565162749727,
+        "new_paths": 3.0029991348056955,
+        "blocked_opponents": 1.6671337144566043,
+        "corner_control": 1.630424906495473,
+        "compactness": 0.892491650236081,
+        "flexibility": 2.0391133392741523,
+        "mobility": 1.2189256935119352,
+        "opponent_restriction": 2.382014470076147,
+        "endgame_optimization": 0.7547851705434383,
+        "territory_expansion": 0.9651689943712627
+      },
+      "win_rate": 0.26666666666666666
+    },
+    {
+      "weights": {
+        "piece_size": 1.3001422310619084,
+        "new_paths": 1.8659473388350643,
+        "blocked_opponents": 2.5941533925621463,
+        "corner_control": 1.630451724083697,
+        "compactness": 1.271533301354838,
+        "flexibility": 1.684347249582236,
+        "mobility": 0.8963913647987349,
+        "opponent_restriction": 2.3715147978729485,
+        "endgame_optimization": 1.0984704121186062,
+        "territory_expansion": 1.0966409233392547
+      },
+      "win_rate": 0.06666666666666667
+    },
+    {
+      "weights": {
+        "piece_size": 1.2009031395321637,
+        "new_paths": 1.8895449667884565,
+        "blocked_opponents": 2.41826519198835,
+        "corner_control": 1.3569151950981349,
+        "compactness": 0.9967653638306112,
+        "flexibility": 1.713873551407392,
+        "mobility": 0.7301132706621534,
+        "opponent_restriction": 0.8902112339498292,
+        "endgame_optimization": 1.196200295937166,
+        "territory_expansion": 1.153690337147856
+      },
+      "win_rate": 0.3333333333333333
+    },
+    {
+      "weights": {
+        "piece_size": 1.503591559193859,
+        "new_paths": 2.3386823787384667,
+        "blocked_opponents": 1.7010810238068566,
+        "corner_control": 1.245234310317208,
+        "compactness": 1.2291897581652602,
+        "flexibility": 2.1323740805263003,
+        "mobility": 0.9153509401139233,
+        "opponent_restriction": 2.4612229972045525,
+        "endgame_optimization": 0.9674551222987198,
+        "territory_expansion": 1.0550359455581226
+      },
+      "win_rate": 0.06666666666666667
+    },
+    {
+      "weights": {
+        "piece_size": 1.215675625293974,
+        "new_paths": 3.0721876991961405,
+        "blocked_opponents": 1.6743162931272288,
+        "corner_control": 1.392911285167752,
+        "compactness": 1.0411941686545294,
+        "flexibility": 2.548011702220746,
+        "mobility": 1.2672657163637888,
+        "opponent_restriction": 1.8248358195634056,
+        "endgame_optimization": 0.8875907002167212,
+        "territory_expansion": 0.9929389510094366
+      },
+      "win_rate": 0.06666666666666667
+    },
+    {
+      "weights": {
+        "piece_size": 1.1247104297658015,
+        "new_paths": 2.0985918115587445,
+        "blocked_opponents": 2.296773977561494,
+        "corner_control": 1.5441091105975335,
+        "compactness": 1.0532253474676687,
+        "flexibility": 2.2826660839313355,
+        "mobility": 1.0310294853400106,
+        "opponent_restriction": 2.3912758006806794,
+        "endgame_optimization": 0.7074766370584957,
+        "territory_expansion": 1.0009849815113658
+      },
+      "win_rate": 0.13333333333333333
+    },
+    {
+      "weights": {
+        "piece_size": 1.4281904970568555,
+        "new_paths": 2.106622654616377,
+        "blocked_opponents": 1.5559612896951167,
+        "corner_control": 1.564375224929079,
+        "compactness": 0.7744320609965222,
+        "flexibility": 1.5111355044601507,
+        "mobility": 1.1057465956831942,
+        "opponent_restriction": 2.3708233419577143,
+        "endgame_optimization": 1.1689898243563848,
+        "territory_expansion": 1.0885406597277276
+      },
+      "win_rate": 0.13333333333333333
+    },
+    {
+      "weights": {
+        "piece_size": 1.7293450318219634,
+        "new_paths": 1.8912530211016099,
+        "blocked_opponents": 2.0522585671706994,
+        "corner_control": 1.1462044783459944,
+        "compactness": 1.146390128240826,
+        "flexibility": 1.7322394016563214,
+        "mobility": 0.9176285116606946,
+        "opponent_restriction": 1.519977701072377,
+        "endgame_optimization": 0.9676461368181328,
+        "territory_expansion": 0.9441304561015182
+      },
+      "win_rate": 0.3333333333333333
+    },
+    {
+      "weights": {
+        "piece_size": 1.450348684021637,
+        "new_paths": 2.1701789025979608,
+        "blocked_opponents": 2.023706226553344,
+        "corner_control": 1.7406730799206662,
+        "compactness": 0.7608298605669117,
+        "flexibility": 2.1540680361737,
+        "mobility": 1.0302819443270523,
+        "opponent_restriction": 2.022492135461688,
+        "endgame_optimization": 0.9236679447966203,
+        "territory_expansion": 0.852756396858419
+      },
+      "win_rate": 0.13333333333333333
+    },
+    {
+      "weights": {
+        "piece_size": 1.313554554672967,
+        "new_paths": 2.4153772919235177,
+        "blocked_opponents": 1.5521234469693654,
+        "corner_control": 1.8756404814522496,
+        "compactness": 0.8661458899397438,
+        "flexibility": 1.927526179798787,
+        "mobility": 0.9830585528385972,
+        "opponent_restriction": 1.5826502884849583,
+        "endgame_optimization": 1.168695817258294,
+        "territory_expansion": 0.7811916905384785
+      },
+      "win_rate": 0.06666666666666667
+    },
+    {
+      "weights": {
+        "piece_size": 1.758980498979692,
+        "new_paths": 2.466511969270883,
+        "blocked_opponents": 2.498812487758899,
+        "corner_control": 1.3968646133186757,
+        "compactness": 0.9524904910808578,
+        "flexibility": 2.378151285091708,
+        "mobility": 1.2713203868232352,
+        "opponent_restriction": 1.8308078733837954,
+        "endgame_optimization": 1.129202495361776,
+        "territory_expansion": 1.2924447082100134
+      },
+      "win_rate": 0.2
+    },
+    {
+      "weights": {
+        "piece_size": 1.8759656070550539,
+        "new_paths": 3.1985409956897564,
+        "blocked_opponents": 1.6073572723515848,
+        "corner_control": 1.2238950159762088,
+        "compactness": 1.0249842039926023,
+        "flexibility": 2.402367377905165,
+        "mobility": 0.9097090322078915,
+        "opponent_restriction": 2.1648047199182328,
+        "endgame_optimization": 0.9480307819851677,
+        "territory_expansion": 1.2940412328929265
+      },
+      "win_rate": 0.26666666666666666
+    },
+    {
+      "weights": {
+        "piece_size": 1.2530844897381856,
+        "new_paths": 2.9313705356446382,
+        "blocked_opponents": 2.4392705668050754,
+        "corner_control": 1.4126142786197127,
+        "compactness": 0.75755647453081,
+        "flexibility": 2.472507971776889,
+        "mobility": 0.8660314173110637,
+        "opponent_restriction": 1.7379252784680226,
+        "endgame_optimization": 1.089865745503205,
+        "territory_expansion": 1.234672294508014
+      },
+      "win_rate": 0.06666666666666667
+    },
+    {
+      "weights": {
+        "piece_size": 1.5869977025277104,
+        "new_paths": 3.143302807401574,
+        "blocked_opponents": 2.4932928585894873,
+        "corner_control": 1.5706170754569366,
+        "compactness": 1.0615709182671078,
+        "flexibility": 2.291829865249619,
+        "mobility": 0.9777402029252337,
+        "opponent_restriction": 1.6720373821489831,
+        "endgame_optimization": 1.2608561905376483,
+        "territory_expansion": 0.937374028917027
+      },
+      "win_rate": 0.13333333333333333
+    },
+    {
+      "weights": {
+        "piece_size": 1.4450304351608987,
+        "new_paths": 2.7940057983435143,
+        "blocked_opponents": 1.5892547334647755,
+        "corner_control": 1.317993491231318,
+        "compactness": 0.8369818096897652,
+        "flexibility": 2.029333745154244,
+        "mobility": 0.7129146158090736,
+        "opponent_restriction": 2.354362630303335,
+        "endgame_optimization": 1.1281906644889768,
+        "territory_expansion": 0.8839036425605852
+      },
+      "win_rate": 0.13333333333333333
+    },
+    {
+      "weights": {
+        "piece_size": 1.0641954824220148,
+        "new_paths": 2.5268306835172885,
+        "blocked_opponents": 1.8445366529648428,
+        "corner_control": 1.9276399209415207,
+        "compactness": 1.056940770567017,
+        "flexibility": 2.4563244565758873,
+        "mobility": 0.8199414422721787,
+        "opponent_restriction": 1.9265200842764363,
+        "endgame_optimization": 1.0207606045405437,
+        "territory_expansion": 1.128613540456639
+      },
+      "win_rate": 0.0
+    }
+  ]
+}

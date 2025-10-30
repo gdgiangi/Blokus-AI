@@ -412,18 +412,18 @@ class OptimizedAIStrategy(AIStrategy):
     def __init__(self, weights: Optional[Dict[str, float]] = None):
         super().__init__("Optimized AI")
         
-        # Default optimized weights (can be updated via hyperparameter tuning)
+        # Default optimized weights (updated from intensive hyperparameter tuning)
         default_weights = {
-            "piece_size": 1.8,
-            "new_paths": 3.2,
-            "blocked_opponents": 2.1,
-            "corner_control": 1.6,
-            "compactness": 0.9,
-            "flexibility": 2.4,
-            "mobility": 1.3,
-            "opponent_restriction": 2.8,
-            "endgame_optimization": 1.5,
-            "territory_expansion": 1.1
+            "piece_size": 1.20,
+            "new_paths": 1.89,
+            "blocked_opponents": 2.42,
+            "corner_control": 1.36,
+            "compactness": 1.00,
+            "flexibility": 1.71,
+            "mobility": 0.73,
+            "opponent_restriction": 0.89,
+            "endgame_optimization": 1.20,
+            "territory_expansion": 1.15
         }
         
         weights = weights or default_weights
