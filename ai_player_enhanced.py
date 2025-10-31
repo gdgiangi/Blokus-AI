@@ -847,23 +847,22 @@ class OptimizedAIStrategy(AIStrategy):
     def __init__(self, weights: Optional[Dict[str, float]] = None):
         super().__init__("Champion Optimized AI")
         
-        # 🏆 CHAMPION WEIGHTS - 48% Win Rate vs Adaptive Champions!
-        # Updated: 2025-10-30 14:34:10 (GeniusTime diverse pool session)
-        # Trained against 5 diverse champion archetypes with adaptive opponents
-        # ULTRA-AGGRESSIVE strategy: Maximum opponent disruption & territorial control
+        # 🏆 CHAMPION WEIGHTS - Optimized Strategy v2.0
+        # Updated: 2025-10-30 20:45:00 (Latest hyperparameter optimization)
+        # HYPER-AGGRESSIVE strategy: Extreme opponent disruption focus
         default_weights = {
-            "piece_size": 0.70,
-            "blocked_opponents": 4.90,
-            "corner_control": 2.50,
-            "compactness": 0.49,
-            "mobility": 0.35,
-            "opponent_restriction": 3.81,
-            "endgame_optimization": 0.78,
-            "corner_path_potential": 1.90,
-            "opponent_territory_pressure": 2.42,
-            "opponent_mobility_restriction": 3.44,
-            "opponent_threat_assessment": 1.59,
-            "strategic_positioning": 0.86
+            "piece_size": 0.50,                      # ⬇️ -29% - Reduced piece size focus
+            "blocked_opponents": 9.74,               # ⬆️ +99% - MASSIVE opponent blocking emphasis  
+            "corner_control": 3.15,                  # ⬆️ +26% - Enhanced corner dominance
+            "compactness": 0.62,                     # ⬆️ +27% - Slightly more compact play
+            "mobility": 0.68,                        # ⬆️ +94% - Nearly doubled mobility value
+            "opponent_restriction": 6.74,            # ⬆️ +77% - Major opponent restriction boost
+            "endgame_optimization": 1.27,            # ⬆️ +63% - Better endgame preparation  
+            "corner_path_potential": 3.40,           # ⬆️ +79% - Much stronger path planning
+            "opponent_territory_pressure": 3.01,     # ⬆️ +24% - Enhanced territorial pressure
+            "opponent_mobility_restriction": 3.73,   # ⬆️ +8%  - Slight mobility restriction increase
+            "opponent_threat_assessment": 2.23,      # ⬆️ +40% - Better threat evaluation
+            "strategic_positioning": 1.55            # ⬆️ +80% - Much stronger positioning focus
         }
         
         weights = weights or default_weights

@@ -13,6 +13,11 @@ let mctsProgressInterval = null;  // Interval for MCTS progress updates
 let isMCTSActive = false;  // Track if current AI is MCTS
 let previousGameState = null;  // Track previous game state for animations
 
+// Move validation and suggestions
+let validPositions = [];  // Cache valid positions for current piece
+let isShowingValidPositions = false;
+let hoveredCell = null;  // Track currently hovered cell for optimal suggestions
+
 // Color mapping
 const COLORS = {
     'blue': '#3b82f6',
@@ -299,6 +304,7 @@ async function resetGame() {
         aiPlayers = data.ai_players || {};
         selectedPiece = null;
         currentPieceShape = null;
+        clearValidPositions(); // Clear validation hints
         updateUI();
 
         // Restart background music
@@ -355,6 +361,7 @@ async function placePiece(pieceType, row, col, shape) {
         gameState = data.game_state;
         selectedPiece = null;
         currentPieceShape = null;
+        clearValidPositions(); // Clear validation hints
         updateUI();
 
         // Animate the piece placement
@@ -397,6 +404,7 @@ async function passTurn() {
         gameState = data.game_state;
         selectedPiece = null;
         currentPieceShape = null;
+        clearValidPositions(); // Clear validation hints
         previousGameState = null; // Reset animation state
 
         // Remove game over animation
@@ -438,6 +446,7 @@ function handleRotate() {
     if (currentPieceShape) {
         currentPieceShape = rotatePiece(currentPieceShape);
         updateSelectedPieceDisplay();
+        loadValidPositions(); // Reload valid positions for new orientation
 
         // Play rotate sound
         if (typeof soundManager !== 'undefined') {
@@ -450,6 +459,7 @@ function handleFlipHorizontal() {
     if (currentPieceShape) {
         currentPieceShape = flipPieceHorizontal(currentPieceShape);
         updateSelectedPieceDisplay();
+        loadValidPositions(); // Reload valid positions for new orientation
 
         // Play rotate sound
         if (typeof soundManager !== 'undefined') {
@@ -462,6 +472,7 @@ function handleFlipVertical() {
     if (currentPieceShape) {
         currentPieceShape = flipPieceVertical(currentPieceShape);
         updateSelectedPieceDisplay();
+        loadValidPositions(); // Reload valid positions for new orientation
 
         // Play rotate sound
         if (typeof soundManager !== 'undefined') {
@@ -734,6 +745,9 @@ function selectPiece(pieceType, shape) {
     }
 
     updatePieceControls();
+
+    // Load valid positions for this piece
+    loadValidPositions();
 }
 
 function updateSelectedPieceDisplay() {
@@ -788,16 +802,23 @@ function handleDragStart(e, pieceType, shape) {
         });
         e.target.classList.add('selected');
         updateSelectedPieceDisplay();
+        
+        // Load valid positions for this piece
+        loadValidPositions();
     }
 
     draggedPieceElement = e.target;
     e.target.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
+    
+    // Show valid positions when dragging starts
+    setTimeout(() => showValidPositions(), 50);
 }
 
 function handleDragEnd(e) {
     e.target.classList.remove('dragging');
     clearPreview();
+    clearValidPositions();
 }
 
 function handleDragOver(e) {
@@ -840,6 +861,13 @@ function handleCellHover(e) {
 
     if (!isNaN(row) && !isNaN(col)) {
         showPreview(row, col);
+        
+        // Show optimal orientations if this is a valid position
+        if (validPositions.some(([r, c]) => r === row && c === col)) {
+            showOptimalSuggestions(row, col);
+        } else {
+            clearOptimalSuggestions();
+        }
     }
 }
 
@@ -847,6 +875,7 @@ function handleCellLeave(e) {
     // Only clear if we're not entering another cell
     if (!e.relatedTarget || !e.relatedTarget.classList.contains('cell')) {
         clearPreview();
+        clearOptimalSuggestions();
     }
 }
 
@@ -881,6 +910,115 @@ function clearPreview() {
     document.querySelectorAll('.cell.preview').forEach(cell => {
         cell.classList.remove('preview', 'valid', 'invalid');
     });
+}
+
+// Move Validation Hints Functions
+async function loadValidPositions() {
+    if (!selectedPiece || !currentPieceShape || !gameState) {
+        clearValidPositions();
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/game/valid_positions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                piece_type: selectedPiece,
+                shape: currentPieceShape
+            })
+        });
+
+        if (!response.ok) {
+            console.error('Failed to load valid positions');
+            return;
+        }
+
+        const data = await response.json();
+        validPositions = data.valid_positions || [];
+        
+    } catch (error) {
+        console.error('Error loading valid positions:', error);
+        validPositions = [];
+    }
+}
+
+function showValidPositions() {
+    if (!validPositions.length || isShowingValidPositions) return;
+    
+    isShowingValidPositions = true;
+    
+    validPositions.forEach(([row, col]) => {
+        const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+        if (cell && !cell.classList.contains('occupied')) {
+            cell.classList.add('valid-position');
+        }
+    });
+}
+
+function clearValidPositions() {
+    isShowingValidPositions = false;
+    document.querySelectorAll('.cell.valid-position').forEach(cell => {
+        cell.classList.remove('valid-position');
+    });
+    clearOptimalSuggestions();
+}
+
+// Smart Piece Suggestions Functions
+async function showOptimalSuggestions(row, col) {
+    if (!selectedPiece || !gameState) return;
+
+    try {
+        const response = await fetch('/api/game/optimal_orientations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                piece_type: selectedPiece,
+                row: row,
+                col: col
+            })
+        });
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const orientations = data.orientations || [];
+        
+        if (orientations.length === 0) return;
+
+        // Clear previous suggestions
+        clearOptimalSuggestions();
+
+        // Show all orientations, highlight the best one
+        orientations.forEach((orientation, index) => {
+            const shape = orientation.shape;
+            const isBest = index === 0; // First orientation is usually the best
+
+            shape.forEach(([r, c]) => {
+                const cellRow = row + r;
+                const cellCol = col + c;
+                const cell = document.querySelector(`[data-row="${cellRow}"][data-col="${cellCol}"]`);
+                if (cell && !cell.classList.contains('occupied')) {
+                    cell.classList.add('optimal-orientation');
+                    if (isBest) {
+                        cell.classList.add('suggested');
+                    }
+                }
+            });
+        });
+
+        hoveredCell = { row, col };
+
+    } catch (error) {
+        console.error('Error loading optimal orientations:', error);
+    }
+}
+
+function clearOptimalSuggestions() {
+    document.querySelectorAll('.cell.optimal-orientation').forEach(cell => {
+        cell.classList.remove('optimal-orientation', 'suggested');
+    });
+    hoveredCell = null;
 }
 
 // Game Over

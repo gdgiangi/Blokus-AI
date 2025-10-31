@@ -12,8 +12,8 @@ This document outlines planned features and improvements to enhance the gameplay
 
 ### 2. Player Experience Enhancements
 - [ ] **Undo/Redo System**: Allow players to undo their last move(s) with visual confirmation
-- [ ] **Move Validation Hints**: Show visual indicators for valid placement locations as players drag pieces
-- [ ] **Smart Piece Suggestions**: Highlight optimal piece orientations when hovering over valid positions
+- [x] **Move Validation Hints**: Show visual indicators for valid placement locations as players drag pieces
+- [x] **Smart Piece Suggestions**: Highlight optimal piece orientations when hovering over valid positions
 - [ ] **Piece Filtering**: Add buttons to filter available pieces by size or type for easier navigation
 
 ### 3. Game Flow Improvements
@@ -114,9 +114,9 @@ This document outlines planned features and improvements to enhance the gameplay
 **Current Status**: Active Development  
 **Last Updated**: October 30, 2025  
 **Total Features**: 47 planned features  
-**Completed**: 3 ✅  
+**Completed**: 5 ✅  
 **In Progress**: 0 🚧  
-**Planned**: 44 📋  
+**Planned**: 42 📋  
 
 ---
 

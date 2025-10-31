@@ -474,6 +474,88 @@ body {
     }
 }
 
+/* Move Validation Hints */
+.cell.valid-position {
+    position: relative;
+    background: rgba(16, 185, 129, 0.15) !important;
+    box-shadow: inset 0 0 0 2px rgba(16, 185, 129, 0.4);
+    animation: validPulse 1.5s ease-in-out infinite;
+}
+
+.cell.valid-position::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(16, 185, 129, 0.8);
+    transform: translate(-50%, -50%);
+    animation: validDot 1.5s ease-in-out infinite;
+}
+
+@keyframes validPulse {
+    0%, 100% {
+        box-shadow: inset 0 0 0 2px rgba(16, 185, 129, 0.4);
+    }
+    50% {
+        box-shadow: inset 0 0 0 2px rgba(16, 185, 129, 0.7);
+    }
+}
+
+@keyframes validDot {
+    0%, 100% {
+        opacity: 0.6;
+        transform: translate(-50%, -50%) scale(0.8);
+    }
+    50% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.2);
+    }
+}
+
+/* Smart Piece Suggestions */
+.cell.optimal-orientation {
+    background: rgba(59, 130, 246, 0.2) !important;
+    box-shadow: 
+        inset 0 0 0 2px rgba(59, 130, 246, 0.6),
+        0 0 8px rgba(59, 130, 246, 0.3);
+    animation: optimalSuggestion 0.8s ease-out;
+}
+
+.cell.optimal-orientation.suggested {
+    background: rgba(251, 191, 36, 0.25) !important;
+    box-shadow: 
+        inset 0 0 0 3px rgba(251, 191, 36, 0.8),
+        0 0 12px rgba(251, 191, 36, 0.4);
+    animation: bestSuggestion 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes optimalSuggestion {
+    0% {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes bestSuggestion {
+    0% {
+        box-shadow: 
+            inset 0 0 0 3px rgba(251, 191, 36, 0.8),
+            0 0 12px rgba(251, 191, 36, 0.4);
+    }
+    100% {
+        box-shadow: 
+            inset 0 0 0 3px rgba(251, 191, 36, 1),
+            0 0 16px rgba(251, 191, 36, 0.6);
+    }
+}
+
 /* Preview Overlay */
 .preview-overlay {
     position: absolute;

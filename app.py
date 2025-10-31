@@ -271,6 +271,102 @@ def get_all_pieces():
     return jsonify(pieces_data)
 
 
+@app.route('/api/game/valid_positions', methods=['POST'])
+def get_valid_positions():
+    """
+    Get all valid placement positions for a specific piece.
+    Expected JSON: {
+        "piece_type": "I1",
+        "shape": [[0,0], [0,1], ...]
+    }
+    """
+    global game
+    
+    if game is None:
+        return jsonify({'error': 'No active game'}), 400
+    
+    try:
+        data = request.get_json()
+        piece_type_str = data.get('piece_type')
+        shape = data.get('shape')
+        
+        if not piece_type_str or not shape:
+            return jsonify({'error': 'Missing piece_type or shape'}), 400
+        
+        piece_type = PieceType(piece_type_str)
+        piece = Piece(piece_type, shape)
+        
+        valid_positions = []
+        current_color = game.get_current_color()
+        
+        # Check all positions on the board
+        for row in range(20):  # Board size is 20x20
+            for col in range(20):
+                can_place, error = game.can_place_piece(piece, row, col)
+                if can_place:
+                    valid_positions.append([row, col])
+        
+        return jsonify({
+            'valid_positions': valid_positions,
+            'piece_type': piece_type_str,
+            'current_player': current_color.value
+        })
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/game/optimal_orientations', methods=['POST'])
+def get_optimal_orientations():
+    """
+    Get optimal piece orientations for a specific position.
+    Expected JSON: {
+        "piece_type": "I1",
+        "row": 10,
+        "col": 10
+    }
+    """
+    global game
+    
+    if game is None:
+        return jsonify({'error': 'No active game'}), 400
+    
+    try:
+        data = request.get_json()
+        piece_type_str = data.get('piece_type')
+        row = data.get('row')
+        col = data.get('col')
+        
+        if piece_type_str is None or row is None or col is None:
+            return jsonify({'error': 'Missing required parameters'}), 400
+        
+        piece_type = PieceType(piece_type_str)
+        current_color = game.get_current_color()
+        
+        # Get all valid moves for this piece type
+        valid_moves = game.get_valid_moves_for_piece(piece_type, current_color)
+        
+        # Filter moves for the specific position
+        position_moves = []
+        for move_row, move_col, oriented_piece in valid_moves:
+            if move_row == row and move_col == col:
+                position_moves.append({
+                    'shape': oriented_piece.shape,
+                    'row': move_row,
+                    'col': move_col
+                })
+        
+        return jsonify({
+            'orientations': position_moves,
+            'piece_type': piece_type_str,
+            'position': [row, col],
+            'current_player': current_color.value
+        })
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/ai/move', methods=['POST'])
 def ai_move():
     """
