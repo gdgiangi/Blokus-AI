@@ -50,7 +50,7 @@ You can find even better weights using the hyperparameter tuning system!
 
 ### Quick Tuning (~5-10 minutes):
 ```bash
-python hyperparameter_tuning.py
+python tuning/hyperparameter_tuning.py
 ```
 
 Choose option "1" for quick tuning. This will:
@@ -61,7 +61,7 @@ Choose option "1" for quick tuning. This will:
 
 ### Intensive Tuning (~30-60 minutes):
 ```bash
-python hyperparameter_tuning.py
+python tuning/hyperparameter_tuning.py
 ```
 
 Choose option "2" for intensive tuning. This will:

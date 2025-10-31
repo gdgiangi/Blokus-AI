@@ -1044,11 +1044,11 @@ class DefensiveOptimizedStrategy(AIStrategy):
 
 
 class RandomAIStrategy(AIStrategy):
-    """Random AI that makes completely random moves without any heuristics"""
+    """Random AI strategy that selects moves randomly without any heuristics"""
     
     def __init__(self):
-        super().__init__("Random AI")
-        # No heuristics - completely random play
+        """Initialize random AI strategy"""
+        super().__init__("Random AI")  # Pass name string as required
     
     def select_move(self, evaluations: List[MoveEvaluation]) -> Optional[MoveEvaluation]:
         """Select a completely random move from available options"""
@@ -1058,24 +1058,49 @@ class RandomAIStrategy(AIStrategy):
         return random.choice(evaluations)
     
     def choose_move(self, game_state: GameState, color: PlayerColor) -> Optional[MoveEvaluation]:
-        """
-        Choose a random valid move.
-        Overrides parent to skip all heuristic evaluation for pure random selection.
-        """
-        all_moves = self.get_all_possible_moves(game_state, color)
+        """Choose a random valid move"""
+        possible_moves = self.get_all_possible_moves(game_state, color)
         
-        if not all_moves:
+        if not possible_moves:
             return None
         
-        # For random AI, all moves have score 0 and no heuristic breakdown
-        # Just pick one at random
-        chosen_move = random.choice(all_moves)
+        # Return a random move
+        return random.choice(possible_moves)
+    
+    def choose_move_with_visualization(self, game_state: GameState, color: PlayerColor) -> Optional[MoveEvaluation]:
+        """Choose a random valid move (same as choose_move for random strategy)"""
+        return self.choose_move(game_state, color)
+    
+    def get_all_possible_moves(self, game_state: GameState, color: PlayerColor) -> List[MoveEvaluation]:
+        """Get all possible moves with random scores"""
+        player = game_state.get_player(color)
+        if not player:
+            return []
         
-        # Set score to 0 and empty heuristics (purely random choice)
-        chosen_move.score = 0.0
-        chosen_move.heuristic_breakdown = {}
+        moves = []
         
-        return chosen_move
+        # For each available piece (these are pieces the player still has)
+        for piece_obj in player.available_pieces:
+            piece_type = piece_obj.piece_type
+            
+            # Get all valid moves for this piece
+            valid_moves = game_state.get_valid_moves_for_piece(piece_type, color)
+            
+            # Evaluate each valid move with random score
+            for row, col, oriented_piece in valid_moves:
+                # Assign random score between 0 and 1
+                score = random.random()
+                
+                moves.append(MoveEvaluation(
+                    piece_type=piece_type,
+                    row=row,
+                    col=col,
+                    piece=oriented_piece,
+                    score=score,
+                    heuristic_breakdown={"random": score}
+                ))
+        
+        return moves
 
 
 class AIPlayer:

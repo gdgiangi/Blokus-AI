@@ -56,10 +56,8 @@ document.addEventListener('DOMContentLoaded', () => {
     attachEventListeners();
     updateAIControls(); // Initialize AI controls
 
-    // Start background music
-    if (typeof soundManager !== 'undefined') {
-        soundManager.startBackgroundMusic();
-    }
+    // Don't start background music automatically
+    // Music will start when a new game begins
 
     console.log('Blokus game interface initialized');
 });
@@ -157,6 +155,11 @@ async function createNewGame(numPlayers) {
         elements.resetGameBtn.disabled = false;
         elements.passTurnBtn.disabled = false;
 
+        // Start background music
+        if (typeof soundManager !== 'undefined') {
+            soundManager.startBackgroundMusic();
+        }
+
         // Play game start sound
         if (typeof soundManager !== 'undefined') {
             soundManager.playGameStart();
@@ -187,6 +190,12 @@ async function resetGame() {
         selectedPiece = null;
         currentPieceShape = null;
         updateUI();
+
+        // Restart background music
+        if (typeof soundManager !== 'undefined') {
+            soundManager.stopBackgroundMusic();
+            soundManager.startBackgroundMusic();
+        }
 
         // Check if it's AI's turn
         checkAITurn();
@@ -366,9 +375,7 @@ function updateUI() {
     updatePlayerInfo();
     updateScores();
     updatePieces();
-}
-
-function updateBoard() {
+} function updateBoard() {
     if (!gameState) return;
 
     // Clear board
@@ -706,8 +713,9 @@ function showGameOver() {
 
     elements.gameOverModal.classList.add('active');
 
-    // Play game over sound
+    // Stop background music and play game over sound
     if (typeof soundManager !== 'undefined') {
+        soundManager.stopBackgroundMusic();
         soundManager.playGameOver();
     }
 }

@@ -20,7 +20,7 @@ Example on a typical 8-core system:
 
 ### 1. Run Quick Tune (5-10 minutes with parallelization)
 ```python
-from hyperparameter_tuning import quick_tune
+from tuning.hyperparameter_tuning import quick_tune
 
 # Use all CPU cores (default)
 best_weights = quick_tune()
@@ -31,14 +31,14 @@ best_weights = quick_tune(n_jobs=4)
 
 ### 2. Run Intensive Tune (20-40 minutes with parallelization)
 ```python
-from hyperparameter_tuning import intensive_tune
+from tuning.hyperparameter_tuning import intensive_tune
 
 best_weights = intensive_tune()  # Uses all cores
 ```
 
 ### 3. Custom Tuning
 ```python
-from hyperparameter_tuning import HyperparameterTuner
+from tuning.hyperparameter_tuning import HyperparameterTuner
 
 # Initialize with parallelization
 tuner = HyperparameterTuner(n_jobs=None)  # None or -1 = all cores

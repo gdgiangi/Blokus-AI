@@ -24,7 +24,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from game_state import GameState
 from board import PlayerColor
-from ai_player_enhanced import OptimizedAIStrategy, AIPlayer, EnhancedHeuristic, AggressiveOptimizedStrategy, BalancedOptimizedStrategy, DefensiveOptimizedStrategy
+from ai_player_enhanced import OptimizedAIStrategy, AIPlayer, EnhancedHeuristic, AggressiveOptimizedStrategy, BalancedOptimizedStrategy, DefensiveOptimizedStrategy, RandomAIStrategy
 
 
 # Fixed diverse strategy weights for robust evaluation against different playstyles
@@ -89,6 +89,14 @@ class TuningConfig:
     save_interval_minutes: int = 10
     verbose_logging: bool = True
     n_jobs: Optional[int] = None
+    
+    # NEW: Random AI injection parameters
+    random_opponent_frequency: float = 0.3  # 30% of games include random AI
+    random_replacement_strategy: str = "defensive"  # Which fixed strategy to replace with random
+    
+    # NEW: Enhanced champion battle parameters
+    champion_battle_frequency: int = 10  # Run battles every N evaluations
+    champion_battle_weight: float = 0.3  # Weight of battle results in final ranking
     
     # Enhanced global optimization parameters
     convergence_patience: int = 50  # Generations without improvement before convergence
@@ -178,6 +186,10 @@ class SessionManager:
         self.total_evaluation_time = 0
         self.win_rate_history = deque(maxlen=100)  # Last 100 evaluations
         
+        # Champion battle tracking
+        self.evaluations_since_last_battle = 0
+        self.total_battles_conducted = 0
+        
         self.logger.info(f"Starting tuning session: {config.session_name}")
         self.logger.info(f"Session directory: {self.session_dir}")
         self.logger.info(f"Max duration: {config.max_duration_hours:.1f} hours")
@@ -230,25 +242,25 @@ class SessionManager:
         5. UI Baseline - Matches UI's Balanced strategy for real-world validation
         """
         current_champions = [
-            # Champion 1: Uniform Baseline (neutral starting point)
+            # Champion 1: Latest Optimized Champion (60% win rate from GeniusTime session)
             {
-                "name": "Uniform Baseline",
+                "name": "Latest Champion (GeniusTime 60%)",
                 "weights": {
-                    "piece_size": 1.0,
-                    "blocked_opponents": 1.0,
-                    "corner_control": 1.0,
-                    "compactness": 1.0,
-                    "mobility": 1.0,
-                    "opponent_restriction": 1.0,
-                    "endgame_optimization": 1.0,
-                    "corner_path_potential": 1.0,
-                    "opponent_territory_pressure": 1.0,
-                    "opponent_mobility_restriction": 1.0,
-                    "opponent_threat_assessment": 1.0,
-                    "strategic_positioning": 1.0
+                    "piece_size": 0.70,
+                    "blocked_opponents": 4.90,
+                    "corner_control": 2.50,
+                    "compactness": 0.49,
+                    "mobility": 0.35,
+                    "opponent_restriction": 3.81,
+                    "endgame_optimization": 0.78,
+                    "corner_path_potential": 1.90,
+                    "opponent_territory_pressure": 2.42,
+                    "opponent_mobility_restriction": 3.44,
+                    "opponent_threat_assessment": 1.59,
+                    "strategic_positioning": 0.86
                 },
-                "win_rate": 0.50,
-                "avg_score": 60.0
+                "win_rate": 0.60,  # Actual performance from previous run
+                "avg_score": 61.68
             },
             # Champion 2: Aggressive Archetype (from tuning fixed opponents)
             {
@@ -307,8 +319,9 @@ class SessionManager:
         
         self.logger.info(f"Initialized diverse champion pool with {len(champion_pool)} strategic archetypes:")
         for i, (champ, champ_data) in enumerate(zip(champion_pool, current_champions), 1):
+            win_rate_info = f" ({champ_data.get('win_rate', 0.5):.0%} win rate)" if 'win_rate' in champ_data else ""
             self.logger.info(
-                f"  {i}. {champ_data['name']}"
+                f"  {i}. {champ_data['name']}{win_rate_info}"
             )
         
         return champion_pool
@@ -448,11 +461,12 @@ class SessionManager:
         return elapsed_minutes >= self.config.save_interval_minutes
     
     def add_evaluation(self, result: EvaluationResult):
-        """Add a new evaluation result"""
+        """Add a new evaluation result and check if champion battles should be triggered"""
         self.evaluations.append(result)
         self.total_games_played += len(result.games)
         self.total_evaluation_time += result.evaluation_time
         self.win_rate_history.append(result.win_rate)
+        self.evaluations_since_last_battle += 1
         
         if result.win_rate > self.best_win_rate:
             self.best_win_rate = result.win_rate
@@ -462,6 +476,19 @@ class SessionManager:
         # Auto-save if needed
         if self.should_save():
             self.save_progress()
+    
+    def should_conduct_champion_battles(self) -> bool:
+        """Check if champion battles should be conducted"""
+        return (
+            len(self.champion_pool) >= 4 and  # Need at least 4 champions
+            self.evaluations_since_last_battle >= self.config.champion_battle_frequency
+        )
+    
+    def record_champion_battle(self):
+        """Record that a champion battle was conducted"""
+        self.evaluations_since_last_battle = 0
+        self.total_battles_conducted += 1
+        self.logger.info(f"Champion battle #{self.total_battles_conducted} completed")
     
     def save_progress(self):
         """Save current progress to files"""
@@ -541,28 +568,58 @@ class SessionManager:
 
 
 # Global helper function for multiprocessing
-def _play_diverse_strategy_game(game_config: Tuple[Dict[str, float], int]) -> GameResult:
+def _play_diverse_strategy_game(game_config: Tuple[Dict[str, float], int, float, str]) -> GameResult:
     """
     Play a single game: Contender vs 3 Diverse Strategies (Aggressive, Balanced, Defensive)
-    This provides robust evaluation against fundamentally different playstyles.
+    Optionally replaces one strategy with a random AI for chaos injection.
     Returns detailed game result.
     """
-    contender_weights, game_id = game_config
+    contender_weights, game_id, random_frequency, replacement_strategy = game_config
     
     game = GameState(num_players=4)
     game.start_game()
+    
+    # Determine if this game should include a random player
+    use_random = random.random() < random_frequency
     
     # Create AI players with diverse strategies for robust evaluation
     # Blue = Contender (being tested)
     # Yellow = Aggressive Strategy (high blocking, territorial control)
     # Red = Balanced Strategy (moderate across all heuristics)  
-    # Green = Defensive Strategy (high mobility, path potential, self-preservation)
-    ai_players = {
-        PlayerColor.BLUE: AIPlayer(PlayerColor.BLUE, OptimizedAIStrategy(contender_weights)),
-        PlayerColor.YELLOW: AIPlayer(PlayerColor.YELLOW, OptimizedAIStrategy(DIVERSE_STRATEGY_WEIGHTS["aggressive"])),
-        PlayerColor.RED: AIPlayer(PlayerColor.RED, OptimizedAIStrategy(DIVERSE_STRATEGY_WEIGHTS["balanced"])),
-        PlayerColor.GREEN: AIPlayer(PlayerColor.GREEN, OptimizedAIStrategy(DIVERSE_STRATEGY_WEIGHTS["defensive"]))
-    }
+    # Green = Defensive Strategy (high mobility, path potential, self-preservation) OR Random AI
+    
+    if use_random and replacement_strategy == "defensive":
+        # Replace defensive strategy with random AI
+        ai_players = {
+            PlayerColor.BLUE: AIPlayer(PlayerColor.BLUE, OptimizedAIStrategy(contender_weights)),
+            PlayerColor.YELLOW: AIPlayer(PlayerColor.YELLOW, OptimizedAIStrategy(DIVERSE_STRATEGY_WEIGHTS["aggressive"])),
+            PlayerColor.RED: AIPlayer(PlayerColor.RED, OptimizedAIStrategy(DIVERSE_STRATEGY_WEIGHTS["balanced"])),
+            PlayerColor.GREEN: AIPlayer(PlayerColor.GREEN, RandomAIStrategy())  # RANDOM AI INJECTION
+        }
+    elif use_random and replacement_strategy == "aggressive":
+        # Replace aggressive strategy with random AI
+        ai_players = {
+            PlayerColor.BLUE: AIPlayer(PlayerColor.BLUE, OptimizedAIStrategy(contender_weights)),
+            PlayerColor.YELLOW: AIPlayer(PlayerColor.YELLOW, RandomAIStrategy()),  # RANDOM AI INJECTION
+            PlayerColor.RED: AIPlayer(PlayerColor.RED, OptimizedAIStrategy(DIVERSE_STRATEGY_WEIGHTS["balanced"])),
+            PlayerColor.GREEN: AIPlayer(PlayerColor.GREEN, OptimizedAIStrategy(DIVERSE_STRATEGY_WEIGHTS["defensive"]))
+        }
+    elif use_random and replacement_strategy == "balanced":
+        # Replace balanced strategy with random AI
+        ai_players = {
+            PlayerColor.BLUE: AIPlayer(PlayerColor.BLUE, OptimizedAIStrategy(contender_weights)),
+            PlayerColor.YELLOW: AIPlayer(PlayerColor.YELLOW, OptimizedAIStrategy(DIVERSE_STRATEGY_WEIGHTS["aggressive"])),
+            PlayerColor.RED: AIPlayer(PlayerColor.RED, RandomAIStrategy()),  # RANDOM AI INJECTION
+            PlayerColor.GREEN: AIPlayer(PlayerColor.GREEN, OptimizedAIStrategy(DIVERSE_STRATEGY_WEIGHTS["defensive"]))
+        }
+    else:
+        # Standard diverse strategies (no random AI)
+        ai_players = {
+            PlayerColor.BLUE: AIPlayer(PlayerColor.BLUE, OptimizedAIStrategy(contender_weights)),
+            PlayerColor.YELLOW: AIPlayer(PlayerColor.YELLOW, OptimizedAIStrategy(DIVERSE_STRATEGY_WEIGHTS["aggressive"])),
+            PlayerColor.RED: AIPlayer(PlayerColor.RED, OptimizedAIStrategy(DIVERSE_STRATEGY_WEIGHTS["balanced"])),
+            PlayerColor.GREEN: AIPlayer(PlayerColor.GREEN, OptimizedAIStrategy(DIVERSE_STRATEGY_WEIGHTS["defensive"]))
+        }
     
     move_count = 0
     max_moves = 300  # Increased safety limit
@@ -799,10 +856,10 @@ class AdvancedHyperparameterTuner:
             
             opponent_type = "adaptive_champions"
         else:
-            # Use fixed diverse strategies
+            # Use fixed diverse strategies (with optional random AI injection)
             game_configs = []
             for game_id in range(num_games):
-                config = (weights, game_id)
+                config = (weights, game_id, self.config.random_opponent_frequency, self.config.random_replacement_strategy)
                 game_configs.append(config)
             
             # Play games in parallel
@@ -812,7 +869,11 @@ class AdvancedHyperparameterTuner:
             else:
                 game_results = [_play_diverse_strategy_game(config) for config in game_configs]
             
-            opponent_type = "diverse_fixed"
+            # Determine opponent type based on random injection
+            if self.config.random_opponent_frequency > 0:
+                opponent_type = f"diverse_fixed+random({self.config.random_opponent_frequency:.0%})"
+            else:
+                opponent_type = "diverse_fixed"
         
         # Calculate statistics
         wins = sum(1 for result in game_results if result.winner == "blue")
@@ -860,6 +921,14 @@ class AdvancedHyperparameterTuner:
         self.session_manager.update_champion_pool(
             weights, result.win_rate, result.avg_score, len(result.games)
         )
+        
+        # Check if champion battles should be conducted
+        if self.session_manager.should_conduct_champion_battles():
+            self.session_manager.logger.info(
+                f"⚔️ Triggering champion battles (every {self.config.champion_battle_frequency} evaluations)"
+            )
+            battle_results = self.conduct_champion_battles()
+            self.session_manager.record_champion_battle()
         
         return result
     
@@ -967,8 +1036,17 @@ class AdvancedHyperparameterTuner:
                 f"[Original: {original_champ.win_rate:.1%} vs fixed opponents]"
             )
             
-            # Update champion entry with battle performance
-            # Use battle performance as tie-breaker for same win rates
+            # Update champion entry with battle performance using weighted average
+            # Blend original win rate with battle win rate
+            original_weight = 1.0 - self.config.champion_battle_weight
+            battle_weight = self.config.champion_battle_weight
+            
+            new_win_rate = (
+                original_weight * battle_champions[i].win_rate + 
+                battle_weight * battle_win_rate
+            )
+            
+            battle_champions[i].win_rate = new_win_rate
             battle_champions[i].avg_score = (
                 0.7 * battle_champions[i].avg_score + 0.3 * battle_avg_score
             )
