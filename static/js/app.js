@@ -11,6 +11,7 @@ let aiThinking = false;  // Track if AI is currently "thinking"
 let aiThinkingInterval = null;  // Interval for AI thinking animation
 let mctsProgressInterval = null;  // Interval for MCTS progress updates
 let isMCTSActive = false;  // Track if current AI is MCTS
+let previousGameState = null;  // Track previous game state for animations
 
 // Color mapping
 const COLORS = {
@@ -89,6 +90,115 @@ function initializeElements() {
     elements.mctsTime = document.getElementById('mcts-time');
     elements.mctsProgressFill = document.getElementById('mcts-progress-fill');
     elements.musicToggleBtn = document.getElementById('music-toggle-btn');
+}
+
+// Animation System (Particles Removed)
+class GameAnimations {
+
+    static animateScoreReordering(newGameState, oldGameState, existingPositions) {
+        console.log('🔄 Animating score reordering');
+
+        // Create a map of old rankings
+        const oldRankings = {};
+        oldGameState.rankings.forEach(([color, score], index) => {
+            oldRankings[color] = { rank: index, score };
+        });
+
+        // Create a map of new rankings
+        const newRankings = {};
+        newGameState.rankings.forEach(([color, score], index) => {
+            newRankings[color] = { rank: index, score };
+        });
+
+        // Calculate which items need to move and by how much
+        const movements = [];
+        newGameState.rankings.forEach(([color, newScore], newIndex) => {
+            const oldData = oldRankings[color];
+            if (oldData && oldData.rank !== newIndex) {
+                // This item changed position
+                const oldPosition = existingPositions.find(pos => pos.color === color);
+                if (oldPosition) {
+                    const targetPosition = newIndex * (oldPosition.height + 12); // 12px is the gap
+                    movements.push({
+                        color,
+                        element: oldPosition.element,
+                        oldRank: oldData.rank,
+                        newRank: newIndex,
+                        oldScore: oldData.score,
+                        newScore: newScore,
+                        moveDistance: targetPosition - (oldData.rank * (oldPosition.height + 12))
+                    });
+                }
+            }
+        });
+
+        if (movements.length === 0) {
+            // No position changes, just render normally
+            renderScoreItems();
+            return;
+        }
+
+        // Set up the container for absolute positioning during animation
+        const containerHeight = elements.scoresContainer.offsetHeight;
+        elements.scoresContainer.style.height = `${containerHeight}px`;
+        elements.scoresContainer.style.position = 'relative';
+
+        // Convert existing items to absolute positioning
+        existingPositions.forEach((pos, index) => {
+            pos.element.classList.add('score-animating');
+            pos.element.style.top = `${index * (pos.height + 12)}px`;
+        });
+
+        // Animate movements
+        movements.forEach(movement => {
+            setTimeout(() => {
+                movement.element.style.transform = `translateY(${movement.moveDistance}px)`;
+
+                // Update score value if it changed
+                if (movement.oldScore !== movement.newScore) {
+                    const scoreElement = movement.element.querySelector('.score-value');
+                    scoreElement.textContent = movement.newScore;
+                    scoreElement.classList.add('value-changed');
+                    movement.element.classList.add('score-changed');
+
+
+                }
+            }, 50);
+        });
+
+        // After animation completes, render the final state
+        setTimeout(() => {
+            elements.scoresContainer.style.height = '';
+            elements.scoresContainer.style.position = '';
+            renderScoreItems();
+        }, 600); // Match the CSS transition duration
+    }
+
+    static animateTurnTransition(playerElement) {
+        if (!playerElement) return;
+
+        playerElement.classList.add('turn-transition');
+
+        setTimeout(() => {
+            playerElement.classList.remove('turn-transition');
+        }, 500);
+    }
+
+    static animatePiecePlacement(cells) {
+        // Animate cells with staggered timing
+        cells.forEach((cell, index) => {
+            setTimeout(() => {
+                cell.classList.add('piece-placed');
+
+                // Remove animation class after animation
+                setTimeout(() => {
+                    cell.classList.remove('piece-placed');
+                }, 400);
+            }, index * 30); // Stagger the animation
+        });
+    }
+
+
 }
 
 function attachEventListeners() {
@@ -230,10 +340,27 @@ async function placePiece(pieceType, row, col, shape) {
         }
 
         const data = await response.json();
+
+        // Find the cells that were just placed for animation
+        const newlyPlacedCells = [];
+        shape.forEach(([r, c]) => {
+            const cellRow = row + r;
+            const cellCol = col + c;
+            const cell = document.querySelector(`[data-row="${cellRow}"][data-col="${cellCol}"]`);
+            if (cell) {
+                newlyPlacedCells.push(cell);
+            }
+        });
+
         gameState = data.game_state;
         selectedPiece = null;
         currentPieceShape = null;
         updateUI();
+
+        // Animate the piece placement
+        if (newlyPlacedCells.length > 0) {
+            GameAnimations.animatePiecePlacement(newlyPlacedCells);
+        }
 
         // Play place piece sound
         if (typeof soundManager !== 'undefined') {
@@ -270,6 +397,11 @@ async function passTurn() {
         gameState = data.game_state;
         selectedPiece = null;
         currentPieceShape = null;
+        previousGameState = null; // Reset animation state
+
+        // Remove game over animation
+        elements.board.parentElement.classList.remove('game-over');
+
         updateUI();
 
         if (gameState.is_game_over) {
@@ -375,6 +507,9 @@ function updateUI() {
     updatePlayerInfo();
     updateScores();
     updatePieces();
+
+    // Store current state for next comparison
+    previousGameState = JSON.parse(JSON.stringify(gameState));
 } function updateBoard() {
     if (!gameState) return;
 
@@ -417,6 +552,13 @@ function updatePlayerInfo() {
     if (!gameState) return;
 
     const currentColor = gameState.current_player;
+    const previousPlayer = elements.currentPlayer.textContent;
+
+    // Animate turn transition if player changed
+    if (previousPlayer && previousPlayer !== currentColor) {
+        GameAnimations.animateTurnTransition(elements.currentPlayer);
+    }
+
     elements.currentPlayer.textContent = currentColor;
     elements.currentPlayer.className = 'player-name ' + currentColor;
     elements.turnNumber.textContent = gameState.turn_number;
@@ -425,14 +567,53 @@ function updatePlayerInfo() {
 function updateScores() {
     if (!gameState) return;
 
-    elements.scoresContainer.innerHTML = '';
-
     const currentColor = gameState.current_player;
 
+    // Get current score items and their positions before updating
+    const existingItems = Array.from(elements.scoresContainer.children);
+    const existingPositions = existingItems.map(item => {
+        const rect = item.getBoundingClientRect();
+        return {
+            element: item,
+            color: item.dataset.color,
+            top: rect.top,
+            height: rect.height
+        };
+    });
+
+    // Check if we need to animate (if this isn't the first render)
+    const shouldAnimate = existingItems.length > 0 && previousGameState;
+
+    if (shouldAnimate) {
+        GameAnimations.animateScoreReordering(gameState, previousGameState, existingPositions);
+    } else {
+        // First render or no animation needed - just update normally
+        renderScoreItems();
+    }
+}
+
+function renderScoreItems() {
+    if (!gameState) return;
+
+    const currentColor = gameState.current_player;
+    const previousScores = {};
+
+    // Capture previous scores for change detection
+    if (previousGameState) {
+        Object.keys(previousGameState.scores).forEach(color => {
+            previousScores[color] = previousGameState.scores[color];
+        });
+    }
+
+    elements.scoresContainer.innerHTML = '';
+
     // Display scores in order
-    gameState.rankings.forEach(([color, score]) => {
+    gameState.rankings.forEach(([color, score], index) => {
         const scoreItem = document.createElement('div');
         scoreItem.className = 'score-item';
+        scoreItem.dataset.color = color;
+        scoreItem.dataset.rank = index;
+
         if (color === currentColor) {
             scoreItem.classList.add('active');
         }
@@ -450,6 +631,20 @@ function updateScores() {
         `;
 
         elements.scoresContainer.appendChild(scoreItem);
+
+        // Check if score changed
+        const previousScore = previousScores[color] || 0;
+        if (previousScore !== score && previousGameState) {
+            scoreItem.classList.add('score-changed');
+            const scoreValueElement = scoreItem.querySelector('.score-value');
+            scoreValueElement.classList.add('value-changed');
+
+            // Remove highlight after animation
+            setTimeout(() => {
+                scoreItem.classList.remove('score-changed');
+                scoreValueElement.classList.remove('value-changed');
+            }, 1500);
+        }
     });
 }
 
@@ -712,6 +907,11 @@ function showGameOver() {
     });
 
     elements.gameOverModal.classList.add('active');
+
+    // Add game over animation to board
+    elements.board.parentElement.classList.add('game-over');
+
+
 
     // Stop background music and play game over sound
     if (typeof soundManager !== 'undefined') {
