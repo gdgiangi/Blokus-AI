@@ -231,17 +231,17 @@ function attachEventListeners() {
 // API Functions
 async function createNewGame(numPlayers) {
     try {
-        // Get AI player selections from checkboxes
+        // Get AI player selections from checkboxes and difficulty sliders
         const aiConfig = {};
         const colors = ['blue', 'yellow', 'red', 'green'];
 
         for (let i = 0; i < numPlayers; i++) {
             const color = colors[i];
             const checkbox = document.getElementById(`ai-${color}`);
-            const strategySelect = document.getElementById(`strategy-${color}`);
+            const difficultySlider = document.getElementById(`difficulty-${color}`);
 
-            if (checkbox && checkbox.checked && strategySelect) {
-                aiConfig[color] = strategySelect.value;
+            if (checkbox && checkbox.checked && difficultySlider) {
+                aiConfig[color] = parseInt(difficultySlider.value);
             }
         }
 
@@ -1337,7 +1337,17 @@ async function executeAIMove() {
     }
 }
 
-// Update num players select to show AI controls
+// Difficulty level information
+const difficultyInfo = {
+    1: { name: "Beginner", description: "Random moves - great for learning", stars: "★☆☆☆☆☆" },
+    2: { name: "Casual", description: "Simple strategy with some randomness", stars: "★★☆☆☆☆" },
+    3: { name: "Intermediate", description: "Balanced approach with solid fundamentals", stars: "★★★☆☆☆" },
+    4: { name: "Advanced", description: "Aggressive play focused on disruption", stars: "★★★★☆☆" },
+    5: { name: "Expert", description: "Champion-level AI with optimized strategy", stars: "★★★★★☆" },
+    6: { name: "Master", description: "Monte Carlo Tree Search - ultimate challenge", stars: "★★★★★★" }
+};
+
+// Update num players select to show AI controls with compact difficulty sliders
 function updateAIControls() {
     const numPlayers = parseInt(elements.numPlayersSelect.value);
     const colors = ['blue', 'yellow', 'red', 'green'];
@@ -1350,20 +1360,40 @@ function updateAIControls() {
         const color = colors[i];
         const controlDiv = document.createElement('div');
         controlDiv.className = 'ai-control';
+
+        // Create compact difficulty slider layout
         controlDiv.innerHTML = `
             <label class="ai-toggle">
                 <input type="checkbox" id="ai-${color}">
-                <span class="ai-color-badge ${color}">${color.toUpperCase()}</span>
+                <span class="ai-color-badge ${color}">${color.charAt(0).toUpperCase()}</span>
             </label>
-            <select id="strategy-${color}" class="ai-strategy-select">
-                <option value="random">★☆☆☆☆ Random</option>
-                <option value="defensive">★★☆☆☆ Defensive</option>
-                <option value="balanced" selected>★★★☆☆ Balanced</option>
-                <option value="aggressive">★★★★☆ Aggressive</option>
-                <option value="optimized">★★★★★ Champion</option>
-            </select>
+            <div class="difficulty-control">
+                <div class="difficulty-slider-container">
+                    <input type="range" id="difficulty-${color}" class="difficulty-slider" 
+                           min="1" max="6" value="3" step="1">
+                </div>
+                <div class="difficulty-info" id="difficulty-info-${color}">
+                    <div class="difficulty-name">${difficultyInfo[3].name}</div>
+                    <div class="difficulty-stars">${difficultyInfo[3].stars}</div>
+                    <div class="difficulty-description">${difficultyInfo[3].description}</div>
+                </div>
+            </div>
         `;
+
         elements.aiControlsContainer.appendChild(controlDiv);
+
+        // Add event listener for slider changes
+        const slider = document.getElementById(`difficulty-${color}`);
+        const infoDiv = document.getElementById(`difficulty-info-${color}`);
+
+        slider.addEventListener('input', function () {
+            const difficulty = parseInt(this.value);
+            const info = difficultyInfo[difficulty];
+
+            infoDiv.querySelector('.difficulty-name').textContent = info.name;
+            infoDiv.querySelector('.difficulty-stars').textContent = info.stars;
+            infoDiv.querySelector('.difficulty-description').textContent = info.description;
+        });
     }
 }
 

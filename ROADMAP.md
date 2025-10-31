@@ -25,7 +25,7 @@ This document outlines planned features and improvements to enhance the gameplay
 ## 🤖 **AI Experience Enhancements**
 
 ### 4. AI Interaction & Transparency
-- [ ] **AI Difficulty Slider**: Replace strategy dropdown with intuitive difficulty levels (Beginner → Expert)
+- [x] **AI Difficulty Slider**: Replace strategy dropdown with intuitive difficulty levels (Beginner → Expert)
 - [ ] **AI Personality Traits**: Give each AI distinct "personalities" with unique playing styles and visual themes
 - [ ] **Move Explanation Tooltips**: Show detailed reasoning when hovering over AI moves
 - [ ] **AI Learning Indicator**: Show if AI is adapting/learning from the current game
@@ -114,9 +114,9 @@ This document outlines planned features and improvements to enhance the gameplay
 **Current Status**: Active Development  
 **Last Updated**: October 30, 2025  
 **Total Features**: 47 planned features  
-**Completed**: 2 ✅  
+**Completed**: 3 ✅  
 **In Progress**: 0 🚧  
-**Planned**: 45 📋  
+**Planned**: 44 📋  
 
 ---
 

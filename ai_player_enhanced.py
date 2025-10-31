@@ -1043,6 +1043,52 @@ class DefensiveOptimizedStrategy(AIStrategy):
         ))
 
 
+class CasualAIStrategy(AIStrategy):
+    """Casual AI for beginners - simple strategy with basic heuristics and low weights"""
+    
+    def __init__(self, weights: Optional[Dict[str, float]] = None):
+        super().__init__("Casual Beginner AI")
+        
+        # Casual weights - very basic strategy with low values
+        # Only uses simple heuristics to provide a gentle challenge
+        default_weights = {
+            "piece_size": 1.0,  # Basic piece size preference
+            "corner_control": 0.5,  # Minimal board control
+            "compactness": 0.3,  # Some territory building
+            "corner_path_potential": 0.8,  # Basic path awareness
+            "endgame_optimization": 0.6,  # Minimal endgame planning
+            # Minimal opponent-aware behavior for a more casual experience
+            "opponent_territory_pressure": 0.1,
+            "strategic_positioning": 0.3
+        }
+        
+        weights = weights or default_weights
+        
+        # Limited heuristic set - only basic strategies for casual play
+        self.add_heuristic("piece_size", EnhancedHeuristic.piece_size_score, weights.get("piece_size", 1.0))
+        self.add_heuristic("corner_control", EnhancedHeuristic.corner_control_score, weights.get("corner_control", 0.5))
+        self.add_heuristic("compactness", EnhancedHeuristic.compactness_score, weights.get("compactness", 0.3))
+        self.add_heuristic("corner_path_potential", EnhancedHeuristic.corner_path_potential_score, weights.get("corner_path_potential", 0.8))
+        self.add_heuristic("endgame_optimization", EnhancedHeuristic.endgame_optimization_score, weights.get("endgame_optimization", 0.6))
+        self.add_heuristic("opponent_territory_pressure", EnhancedHeuristic.opponent_territory_pressure_score, weights.get("opponent_territory_pressure", 0.1))
+        self.add_heuristic("strategic_positioning", EnhancedHeuristic.strategic_positioning_score, weights.get("strategic_positioning", 0.3))
+    
+    def select_move(self, evaluations: List[MoveEvaluation]) -> Optional[MoveEvaluation]:
+        """Select move with highest score, but with some randomness for casual play"""
+        if not evaluations:
+            return None
+        
+        # Sort evaluations by score
+        sorted_evals = sorted(evaluations, key=lambda e: e.score, reverse=True)
+        
+        # Add some randomness - sometimes pick from top 3 moves instead of always the best
+        import random
+        if len(sorted_evals) >= 3 and random.random() < 0.3:  # 30% chance to not pick optimal
+            return random.choice(sorted_evals[:3])
+        else:
+            return sorted_evals[0]
+
+
 class RandomAIStrategy(AIStrategy):
     """Random AI strategy that selects moves randomly without any heuristics"""
     
@@ -1133,6 +1179,7 @@ def create_ai_player(color: PlayerColor, strategy_name: str = "optimized") -> AI
         "aggressive": AggressiveOptimizedStrategy,
         "balanced": BalancedOptimizedStrategy,
         "defensive": DefensiveOptimizedStrategy,
+        "casual": CasualAIStrategy,
         "random": RandomAIStrategy
     }
     
@@ -1150,3 +1197,66 @@ def create_ai_player(color: PlayerColor, strategy_name: str = "optimized") -> AI
         strategy = strategy_class()
     
     return AIPlayer(color, strategy)
+
+
+def difficulty_level_to_strategy(difficulty: int) -> str:
+    """Convert difficulty level (1-6) to strategy name"""
+    difficulty_mapping = {
+        1: "random",      # Beginner
+        2: "casual",      # Casual  
+        3: "balanced",    # Intermediate
+        4: "aggressive",  # Advanced
+        5: "optimized",   # Expert
+        6: "mcts"        # Master
+    }
+    return difficulty_mapping.get(difficulty, "balanced")
+
+
+def strategy_to_difficulty_level(strategy: str) -> int:
+    """Convert strategy name to difficulty level (1-6)"""
+    strategy_mapping = {
+        "random": 1,      # Beginner
+        "casual": 2,      # Casual
+        "balanced": 3,    # Intermediate  
+        "aggressive": 4,  # Advanced
+        "optimized": 5,   # Expert
+        "mcts": 6        # Master
+    }
+    return strategy_mapping.get(strategy.lower(), 3)
+
+
+def get_difficulty_info(difficulty: int) -> dict:
+    """Get difficulty level information including name and description"""
+    difficulty_info = {
+        1: {
+            "name": "Beginner",
+            "description": "Random moves - great for learning the rules",
+            "stars": "★☆☆☆☆☆"
+        },
+        2: {
+            "name": "Casual", 
+            "description": "Simple strategy with some randomness",
+            "stars": "★★☆☆☆☆"
+        },
+        3: {
+            "name": "Intermediate",
+            "description": "Balanced approach with solid fundamentals", 
+            "stars": "★★★☆☆☆"
+        },
+        4: {
+            "name": "Advanced",
+            "description": "Aggressive play focused on disruption",
+            "stars": "★★★★☆☆"
+        },
+        5: {
+            "name": "Expert",
+            "description": "Champion-level AI with optimized strategy",
+            "stars": "★★★★★☆"
+        },
+        6: {
+            "name": "Master",
+            "description": "Monte Carlo Tree Search - ultimate challenge",
+            "stars": "★★★★★★"
+        }
+    }
+    return difficulty_info.get(difficulty, difficulty_info[3])

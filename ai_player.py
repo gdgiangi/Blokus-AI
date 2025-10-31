@@ -15,7 +15,11 @@ from ai_player_enhanced import (
     AggressiveOptimizedStrategy,
     BalancedOptimizedStrategy,
     DefensiveOptimizedStrategy,
-    RandomAIStrategy
+    CasualAIStrategy,
+    RandomAIStrategy,
+    difficulty_level_to_strategy,
+    strategy_to_difficulty_level,
+    get_difficulty_info
 )
 
 # Alias for backward compatibility
@@ -31,6 +35,7 @@ def create_ai_player(color: PlayerColor, strategy_name: str = "balanced") -> Enh
         "aggressive": AggressiveOptimizedStrategy,
         "balanced": BalancedOptimizedStrategy,
         "defensive": DefensiveOptimizedStrategy,
+        "casual": CasualAIStrategy,
         "optimized": OptimizedAIStrategy,  # Champion baseline
         "random": RandomAIStrategy,  # Random play
     }
@@ -61,5 +66,9 @@ __all__ = [
     'AggressiveOptimizedStrategy',
     'BalancedOptimizedStrategy',
     'DefensiveOptimizedStrategy',
-    'RandomAIStrategy'
+    'CasualAIStrategy',
+    'RandomAIStrategy',
+    'difficulty_level_to_strategy',
+    'strategy_to_difficulty_level',
+    'get_difficulty_info'
 ]

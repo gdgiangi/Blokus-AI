@@ -55,10 +55,17 @@ def new_game():
         
         # Initialize AI players
         ai_players = {}
-        for color_str, strategy in ai_config.items():
+        for color_str, strategy_or_difficulty in ai_config.items():
             try:
                 color = PlayerColor(color_str)
                 if color in game.players:
+                    # Handle both difficulty levels (integers) and strategy names (strings)
+                    strategy = strategy_or_difficulty
+                    if isinstance(strategy_or_difficulty, int):
+                        # Convert difficulty level to strategy name
+                        from ai_player import difficulty_level_to_strategy
+                        strategy = difficulty_level_to_strategy(strategy_or_difficulty)
+                    
                     if strategy.lower() == 'mcts':
                         # Create MCTS AI with progress callback
                         def progress_callback(stats):
@@ -491,6 +498,21 @@ def get_mcts_progress():
         'success': True,
         'progress': progress_data,
         'player_color': current_color.value
+    })
+
+
+@app.route('/api/difficulty/info', methods=['GET'])
+def get_difficulty_info():
+    """Get information about all difficulty levels"""
+    from ai_player import get_difficulty_info
+    
+    difficulty_levels = {}
+    for level in range(1, 7):
+        difficulty_levels[str(level)] = get_difficulty_info(level)
+    
+    return jsonify({
+        'success': True,
+        'difficulty_levels': difficulty_levels
     })
 
 
