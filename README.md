@@ -2,6 +2,8 @@
 
 A comprehensive state space model for the Blokus board game, ready for web interface integration.
 
+<img width="2280" height="1758" alt="image" src="https://github.com/user-attachments/assets/b20d1d60-27ac-48b6-b6b8-e4f1b01e8e6e" />
+
 ## Overview
 
 This implementation provides a complete representation of the Blokus game state, including:
