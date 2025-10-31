@@ -802,7 +802,7 @@ function handleDragStart(e, pieceType, shape) {
         });
         e.target.classList.add('selected');
         updateSelectedPieceDisplay();
-        
+
         // Load valid positions for this piece
         loadValidPositions();
     }
@@ -810,7 +810,7 @@ function handleDragStart(e, pieceType, shape) {
     draggedPieceElement = e.target;
     e.target.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
-    
+
     // Show valid positions when dragging starts
     setTimeout(() => showValidPositions(), 50);
 }
@@ -861,7 +861,7 @@ function handleCellHover(e) {
 
     if (!isNaN(row) && !isNaN(col)) {
         showPreview(row, col);
-        
+
         // Show optimal orientations if this is a valid position
         if (validPositions.some(([r, c]) => r === row && c === col)) {
             showOptimalSuggestions(row, col);
@@ -936,7 +936,7 @@ async function loadValidPositions() {
 
         const data = await response.json();
         validPositions = data.valid_positions || [];
-        
+
     } catch (error) {
         console.error('Error loading valid positions:', error);
         validPositions = [];
@@ -945,9 +945,9 @@ async function loadValidPositions() {
 
 function showValidPositions() {
     if (!validPositions.length || isShowingValidPositions) return;
-    
+
     isShowingValidPositions = true;
-    
+
     validPositions.forEach(([row, col]) => {
         const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
         if (cell && !cell.classList.contains('occupied')) {
@@ -983,7 +983,7 @@ async function showOptimalSuggestions(row, col) {
 
         const data = await response.json();
         const orientations = data.orientations || [];
-        
+
         if (orientations.length === 0) return;
 
         // Clear previous suggestions
